@@ -25,6 +25,7 @@ import { nombreTipo, t, valoresTipo } from "../i18n";
 import {
   CampoMotivo, Conflicto, Hecho, lineaCambio, PantallaSolicitud, PieEditar, SelectorTipo, tipoDe, useGuardado, useSinGuardar, VentanaFormulario,
 } from "./Formulario";
+import { avisoLargo } from "./largoNota";
 
 export interface DuenioNota {
   tipo: "Person" | "Family" | "Event";
@@ -106,7 +107,8 @@ function Contenido({ nota, duenio, borrador = false, alTerminar, alCerrar }: Pro
   const original = nota ?? base;
   const hayCambios = tipo !== nombreTipo(original.type) || texto !== original.text.string;
   useSinGuardar(hayCambios && (paso.tipo === "editar" || paso.tipo === "guardando" || paso.tipo === "solicitud"));
-  const valido = !!texto.trim() && !!tipo.trim();
+  const largo = avisoLargo(texto.length);
+  const valido = !!texto.trim() && !!tipo.trim() && !largo.error;
   const pierdeFormato = tieneFormato(base) && texto !== base.text.string;
 
   async function enviar() {
@@ -180,9 +182,12 @@ function Contenido({ nota, duenio, borrador = false, alTerminar, alCerrar }: Pro
         autosize
         minRows={5}
         maxRows={20}
-        error={!texto.trim() ? t("nota.faltaTexto") : undefined}
+        error={!texto.trim() ? t("nota.faltaTexto") : largo.error}
+        description={largo.ayuda}
+        inputWrapperOrder={["label", "input", "description", "error"]}
         data-autofocus
       />
+      {largo.aviso && <Alert color="yellow">{largo.aviso}</Alert>}
       {pierdeFormato && <Alert color="yellow">{t("nota.perderaFormato")}</Alert>}
       {!borrador && <CampoMotivo valor={motivo} alCambiar={setMotivo} />}
       {pie()}

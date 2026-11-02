@@ -333,6 +333,7 @@ export const es = {
   // proyectos de los que viene la web.
   "privacidad.titulo": "Privacidad",
   "privacidad.enlace": "Privacidad",
+  "acceso.codigoFuente": "Código fuente",
   "privacidad.volver": "Volver",
   "privacidad.datos.titulo": "Qué datos hay.",
   "privacidad.datos.texto": "El árbol de la familia Frescó-Werchowsky: nombres, fechas y lugares de nacimiento, boda y defunción, parentescos, fotos, notas y lo demás que la familia ha ido reuniendo. Incluye datos de personas vivas. De quienes usan la web se guarda además su correo, su contraseña (cifrada: nadie la puede leer, tampoco el administrador), la persona del árbol a la que está vinculado, sus preferencias de la web y qué cambios hace y cuándo.",
@@ -577,6 +578,9 @@ export const es = {
   "nota.nueva": "Nota nueva",
   "nota.texto": "Texto",
   "nota.faltaTexto": "Escribe el texto de la nota.",
+  "nota.caracteres": "{n} de {maximo} caracteres como mucho.",
+  "nota.alLimite": "Has llegado al máximo: {maximo} caracteres. No cabe nada más.",
+  "nota.demasiadoLarga": "La nota tiene {n} caracteres y el máximo es {maximo}. Acórtala (o pártela en varias notas) para poder guardarla.",
   "nota.perderaFormato": "Esta nota tiene formato (negrita, cursiva, enlaces…). Al cambiar el texto, el formato se perderá y quedará solo el texto.",
   "nota.usar": "Hecho",
   "nota.conflicto": "Otra persona ha cambiado esta nota",

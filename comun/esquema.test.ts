@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-import { plantilla, validar } from "./esquema.ts";
+import { MAXIMO_TEXTO_NOTA, plantilla, validar } from "./esquema.ts";
 import { TIPOS, type ObjetoGramps, type Tipo } from "./gramps.ts";
 
 const muestra = JSON.parse(gunzipSync(readFileSync(new URL("./datos-prueba/rama-ejemplo.json.gz", import.meta.url))).toString("utf8"))
@@ -44,6 +44,16 @@ test("rechaza tipos equivocados, valores no permitidos, campos que faltan o sobr
   const h = plantilla<Record<string, unknown>>("Person");
   h.handle = "x".repeat(51);
   assert.ok(validar("Person", h).some((e) => e.includes("más de 50 caracteres")));
+});
+
+test(`el texto de una nota, como mucho ${MAXIMO_TEXTO_NOTA} caracteres`, () => {
+  const n = plantilla<Record<string, any>>("Note");
+  n.handle = "h1";
+  n.gramps_id = "N0001";
+  n.text.string = "x".repeat(MAXIMO_TEXTO_NOTA);
+  assert.deepEqual(validar("Note", n), []);
+  n.text.string += "x";
+  assert.deepEqual(validar("Note", n), [`Note.text.string: más de ${MAXIMO_TEXTO_NOTA} caracteres`]);
 });
 
 test("plantilla() da copias independientes", () => {

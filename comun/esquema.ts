@@ -30,6 +30,12 @@ const ESQUEMAS = datos.esquemas as unknown as Record<Tipo, Esquema>;
 
 export const VERSION_GRAMPS_PLANTILLAS: string = datos.version_gramps;
 
+/** Caracteres como mucho del texto de una nota (Carlos, 02/11/2026). Gramps
+ * no pone límite; este evita que una nota llene el documento de Firestore
+ * (1 MiB) y la instantánea. */
+export const MAXIMO_TEXTO_NOTA = 50_000;
+ESQUEMAS.Note.properties!.text.properties!.string.maxLength = MAXIMO_TEXTO_NOTA;
+
 /** Copia nueva de la plantilla de una clase de Gramps. */
 export function plantilla<T = Record<string, unknown>>(clase: string): T {
   const p = PLANTILLAS[clase];

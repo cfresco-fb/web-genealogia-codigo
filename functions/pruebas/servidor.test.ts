@@ -37,7 +37,7 @@ import bcrypt from "bcryptjs";
 import {
   describirPlan, leerCorrespondencias, leerCsv, leerSupabase, migrar, planificar, registrosImportacion,
 } from "../../firestore/usuarios_supabase.ts";
-import { plantilla } from "../../comun/esquema.ts";
+import { MAXIMO_TEXTO_NOTA, plantilla } from "../../comun/esquema.ts";
 import { Indice } from "../../comun/indice.ts";
 import { jsonCanonico, type ObjetoGramps, type Tipo } from "../../comun/gramps.ts";
 import { REGION_FUNCIONES } from "../../comun/regiones.ts";
@@ -344,6 +344,9 @@ describe("aplicarTransaccion (paso 6)", () => {
       (d) => assert.ok(d[0].errores.includes("Person.primary_name: faltan nick")));
     await rechaza(aplicar(CORREOS.familiar, peticion(await modificar("Person", "P", (o) => { o.gender = "m"; }))), "ESQUEMA");
     await rechaza(aplicar(CORREOS.familiar, peticion(await modificar("Person", "P", (o) => { o.apodo = "x"; }))), "ESQUEMA");
+    // Notas de 50.000 caracteres como mucho (Carlos, 02/11/2026), también las del administrador.
+    await rechaza(aplicar(CORREOS.admin, peticion(await modificar("Note", "N1", (o) => { o.text.string = "x".repeat(MAXIMO_TEXTO_NOTA + 1); }))), "ESQUEMA",
+      (d) => assert.ok(d[0].errores.includes(`Note.text.string: más de ${MAXIMO_TEXTO_NOTA} caracteres`)));
     await rechaza(aplicar(CORREOS.familiar, { accion: "x y", motivo: null, objetos: [] }), "PETICION");
     await rechaza(aplicar(CORREOS.familiar, peticion({ tipo: "Person", handle: "P", operacion: "modificar", base: 1, despues: { handle: "Q" } })), "PETICION");
   });
@@ -446,13 +449,14 @@ describe("aplicarTransaccion (paso 6)", () => {
   });
 
   it("un cambio muy grande guarda el antes y el después en Storage", async () => {
-    const grandes = Array.from({ length: 10 }, (_, i) => crear("Note", nota(`G${i}`, "x".repeat(90_000))));
+    // Más de TAMANO_MAXIMO_REGISTRO con notas del largo máximo.
+    const grandes = Array.from({ length: 20 }, (_, i) => crear("Note", nota(`G${i}`, "x".repeat(MAXIMO_TEXTO_NOTA))));
     const r = await aplicar(CORREOS.admin, peticion(...grandes));
     const reg = (await db.doc(`cambios/${r.cambio}`).get()).data()!;
     assert.equal(reg.fuera.ruta, `registro/${r.cambio}.json.gz`);
     assert.equal(reg.objetos[0].despues, undefined);
     const [gz] = await cubo.file(reg.fuera.ruta).download();
-    assert.equal(JSON.parse(gunzipSync(gz).toString("utf8")).length, 10);
+    assert.equal(JSON.parse(gunzipSync(gz).toString("utf8")).length, 20);
   });
 });
 
