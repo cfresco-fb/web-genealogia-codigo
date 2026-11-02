@@ -177,6 +177,7 @@ export const es = {
   "pdf.papel.grande": "Este tamaño suele imprimirse en una copistería.",
   "pdf.tituloPdf": "Título",
   "pdf.subtituloPdf": "Subtítulo",
+  "pdf.piePdf": "Pie",
   "pdf.disposicion": "Disposición del árbol",
   "pdf.disposicion.vertical": "Vertical: ascendientes arriba, descendientes abajo",
   "pdf.disposicion.horizontal": "Horizontal: ascendientes a la izquierda, descendientes a la derecha",

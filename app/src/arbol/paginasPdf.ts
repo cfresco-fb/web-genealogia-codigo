@@ -38,6 +38,9 @@
 // - Primera página con el título grande y el subtítulo debajo; las de
 //   continuación, con el título pequeño y «Continuación» (decisión del
 //   23/10/2026, «Opciones de los PDF»).
+// - Sin subtítulo o sin pie en la primera página (decisión del 02/11/2026,
+//   «Pie del PDF del árbol elegible»), su sitio es para el árbol, también
+//   al calcular si cabe y cuántas páginas hacen falta (Espacio).
 
 import { PAPER_SIZES, type PaperOrientation, type PaperSize } from "../gramps-connect/chartExport/paperSizes";
 import {
@@ -100,6 +103,8 @@ export const PIE_MM = 8;
  * subtítulo; en las de continuación, una línea con el título pequeño; en
  * el mosaico, el título y qué hoja es. */
 export const CABECERA_PRIMERA_MM = 20;
+/** La de la primera página sin subtítulo: solo el título grande. */
+export const CABECERA_PRIMERA_SIN_SUBTITULO_MM = 13;
 export const CABECERA_CONTINUACION_MM = 8;
 export const CABECERA_MOSAICO_MM = 14;
 /** Alto del encabezado de cada bloque en las páginas de continuación
@@ -122,6 +127,17 @@ export const ESCALA_MINIMA = LETRA_MINIMA_PT / (LETRA_GRAFICO * PT_POR_MM);
 export const ESCALA_MAXIMA = 25.4 / 96;
 
 type Tamano = { width: number; height: number };
+
+/** Qué textos lleva la página, para reservarles sitio: sin subtítulo, la
+ * cabecera de la primera página es solo la del título; sin pie, el árbol
+ * llega hasta el margen de abajo (decisión del 02/11/2026). */
+export interface Espacio {
+  subtitulo: boolean;
+  pie: boolean;
+}
+/** Con todo: como antes del 02/11/2026 (el libro, y las páginas de
+ * continuación, que siempre llevan «Pág. N de M»). */
+export const ESPACIO_COMPLETO: Espacio = { subtitulo: true, pie: true };
 
 /** Tamaño de la hoja en mm. */
 export function hoja(papel: Papel, orientacion: Orientacion): { ancho: number; alto: number } {
@@ -154,16 +170,27 @@ export function hojaDe(plan: Plan, papel: PapelArbol): TamanoHoja {
   return hoja(papel, plan.orientacion);
 }
 
+/** Alto que ocupan en la página la cabecera y el pie. */
+function altoTextos(cabeceras: boolean, espacio: Espacio): { cabecera: number; pie: number } {
+  return {
+    cabecera: cabeceras ? CABECERA_CONTINUACION_MM : espacio.subtitulo ? CABECERA_PRIMERA_MM : CABECERA_PRIMERA_SIN_SUBTITULO_MM,
+    pie: espacio.pie ? PIE_MM : 0,
+  };
+}
+
 /** Coloca uno o varios árboles, uno debajo de otro, en una página con
  * título arriba y número de página abajo; con `cabeceras` (páginas de
  * continuación), cada uno con su línea de encabezado. Todos a la misma
  * escala, la mayor que quepa sin pasar de la de la pantalla. `papel`: un
- * papel o una hoja ya medida (el rollo). */
-export function componer(tamanos: Tamano[], cabeceras: boolean, papel: Papel | TamanoHoja, orientacion: Orientacion): Composicion {
+ * papel o una hoja ya medida (el rollo). `espacio`: si la página lleva
+ * subtítulo (solo cuenta en la primera) y pie. */
+export function componer(
+  tamanos: Tamano[], cabeceras: boolean, papel: Papel | TamanoHoja, orientacion: Orientacion, espacio: Espacio = ESPACIO_COMPLETO,
+): Composicion {
   const { ancho, alto } = typeof papel === "string" ? hoja(papel, orientacion) : papel;
-  const cabecera = cabeceras ? CABECERA_CONTINUACION_MM : CABECERA_PRIMERA_MM;
+  const { cabecera, pie } = altoTextos(cabeceras, espacio);
   const utilAncho = ancho - 2 * MARGEN_MM;
-  const utilAlto = alto - 2 * MARGEN_MM - cabecera - PIE_MM;
+  const utilAlto = alto - 2 * MARGEN_MM - cabecera - pie;
   const areas = tamanos.map((t) => ({ w: t.width + 2 * MARGEN_GRAFICO, h: t.height + 2 * MARGEN_GRAFICO }));
   // Cada bloque con su encabezado, salvo el primero de la primera página
   // (lo dice el título de la página).
@@ -251,6 +278,12 @@ interface Opciones {
   continua: (n: number) => string;
   /** Personas vivas cuyos datos se omiten (libro en PDF). */
   privadas?: ReadonlySet<string>;
+  /** Si la primera página lleva subtítulo y pie (los escritos en el
+   * diálogo); por defecto, los dos (el libro). Aunque no los lleve, se les
+   * reserva sitio si hace falta: al subtítulo, si dice dónde siguen los
+   * descendientes o qué hijos van; al pie, si hay más de una página («Pág.
+   * 1 de N»). */
+  espacio?: Espacio;
 }
 
 /** Bloque interno, antes de saber en qué página va. */
@@ -272,7 +305,7 @@ interface BloqueSinPagina {
   mitad?: boolean;
 }
 
-function bloques(o: Opciones, orientacion: Orientacion): BloqueSinPagina[] {
+function bloques(o: Opciones, orientacion: Orientacion, espacio: Espacio): BloqueSinPagina[] {
   const { arbol, generaciones, simbolos, papel } = o;
   const lista: BloqueSinPagina[] = [];
   const porRama = new Map<string, number>();
@@ -280,7 +313,8 @@ function bloques(o: Opciones, orientacion: Orientacion): BloqueSinPagina[] {
     { id: 0, persona: o.persona, tipo: o.tipo, nivel: 0, origen: null },
   ];
   let siguiente = 1;
-  const cabe = (d: DatosGrafico, primero: boolean) => componer([tamanoDe(d, o.disposicion)], !primero, papel, orientacion).pt >= LETRA_MINIMA_PT;
+  const cabe = (d: DatosGrafico, primero: boolean) =>
+    componer([tamanoDe(d, o.disposicion)], !primero, papel, orientacion, primero ? espacio : ESPACIO_COMPLETO).pt >= LETRA_MINIMA_PT;
   /** Marca el borde (si quedan generaciones) para contar su ancho. */
   // Las parejas de la persona central, solo en su bloque (no en los de
   // continuación de otras personas).
@@ -382,7 +416,7 @@ function bloques(o: Opciones, orientacion: Orientacion): BloqueSinPagina[] {
  * quepan todos a la letra mínima. El primero y, si «Ambos» se ha partido,
  * los descendientes empiezan página; desde el 27/10/2026, los bloques que
  * siguen también caben en esas páginas (antes iban solos, y sobraba papel). */
-function paginar(lista: BloqueSinPagina[], papel: Papel, orientacion: Orientacion): BloqueSinPagina[][] {
+function paginar(lista: BloqueSinPagina[], papel: Papel, orientacion: Orientacion, espacio: Espacio): BloqueSinPagina[][] {
   const paginas: BloqueSinPagina[][] = [];
   for (const b of lista) {
     const actual = paginas.at(-1);
@@ -391,15 +425,29 @@ function paginar(lista: BloqueSinPagina[], papel: Papel, orientacion: Orientacio
       continue;
     }
     const juntos = [...actual, b];
-    if (componer(juntos.map((x) => x.tamano), paginas.length > 1, papel, orientacion).pt >= LETRA_MINIMA_PT) actual.push(b);
+    const otra = paginas.length > 1;
+    if (componer(juntos.map((x) => x.tamano), otra, papel, orientacion, otra ? ESPACIO_COMPLETO : espacio).pt >= LETRA_MINIMA_PT) actual.push(b);
     else paginas.push([b]);
   }
   return paginas;
 }
 
+/** El plan con el sitio de `o.espacio` y, si la primera página necesita
+ * más (ver Opciones.espacio), otra vez con ese sitio. */
 function planEn(o: Opciones, orientacion: Orientacion): Plan {
-  const lista = bloques(o, orientacion);
-  const grupos = paginar(lista, o.papel, orientacion);
+  const pedido = o.espacio ?? ESPACIO_COMPLETO;
+  const plan = planCon(o, orientacion, pedido);
+  const necesario: Espacio = {
+    subtitulo: pedido.subtitulo || plan.descendientesEn !== null || !!plan.paginas[0].bloques[0].hijos,
+    pie: pedido.pie || plan.paginas.length > 1,
+  };
+  if (necesario.subtitulo === pedido.subtitulo && necesario.pie === pedido.pie) return plan;
+  return planCon(o, orientacion, necesario);
+}
+
+function planCon(o: Opciones, orientacion: Orientacion, espacio: Espacio): Plan {
+  const lista = bloques(o, orientacion, espacio);
+  const grupos = paginar(lista, o.papel, orientacion, espacio);
   const paginaDe = new Map<number, number>();
   grupos.forEach((g, i) => g.forEach((b) => paginaDe.set(b.id, i + 1)));
   // Con los números de página, los textos «continúa en la pág. N».
@@ -421,7 +469,7 @@ function planEn(o: Opciones, orientacion: Orientacion): Plan {
       },
       mitad: b.mitad || undefined,
     })),
-    composicion: componer(g.map((b) => b.tamano), i > 0, o.papel, orientacion),
+    composicion: componer(g.map((b) => b.tamano), i > 0, o.papel, orientacion, i > 0 ? ESPACIO_COMPLETO : espacio),
   }));
   const mitad = lista.find((b) => b.mitad);
   return { orientacion, paginas, descendientesEn: mitad ? paginaDe.get(mitad.id)! : null };
@@ -527,14 +575,15 @@ export function planificarMosaico(g: GeometriaArbol, papel: Papel, orientacion: 
 }
 
 /** El árbol entero en una página: con orientación automática, la que deja
- * la letra más grande. `cabe`: si llega a `minimo` puntos. */
+ * la letra más grande. `cabe`: si llega a `minimo` puntos. `espacio`: si
+ * lleva subtítulo y pie (en una sola página no hay «Pág. N de M»). */
 export function planificarUnaPagina(
   datos: DatosGrafico, persona: Persona, tipo: TipoGrafico, generaciones: number, disposicion: Disposicion, papel: PapelArbol,
-  orientacion: PaperOrientation, minimo = LETRA_MINIMA_UNA_PAGINA_PT,
+  orientacion: PaperOrientation, minimo = LETRA_MINIMA_UNA_PAGINA_PT, espacio: Espacio = ESPACIO_COMPLETO,
 ): { plan: Plan; cabe: boolean } {
   const tamano = tamanoDe(datos, disposicion);
   const en = (o: Orientacion): Plan => {
-    const h = papel === ROLLO ? hojaRollo(tamano, o) : undefined;
+    const h = papel === ROLLO ? hojaRollo(tamano, o, espacio) : undefined;
     return {
       orientacion: h ? (h.ancho > h.alto ? "landscape" : "portrait") : o,
       hoja: h,
@@ -542,7 +591,7 @@ export function planificarUnaPagina(
       paginas: [{
         numero: 1,
         bloques: [{ id: 0, persona, tipo, generaciones, datos, tamano, vieneDe: null }],
-        composicion: componer([tamano], false, h ?? (papel as Papel), o),
+        composicion: componer([tamano], false, h ?? (papel as Papel), o, espacio),
       }],
     };
   };
@@ -555,11 +604,12 @@ export function planificarUnaPagina(
  * del árbol; en horizontal, a lo alto. El largo, el que necesite el árbol a
  * la mayor escala que quepa (sin pasar de la de la pantalla ni del largo
  * máximo). */
-function hojaRollo(tamano: Tamano, o: Orientacion): TamanoHoja {
+function hojaRollo(tamano: Tamano, o: Orientacion, espacio: Espacio): TamanoHoja {
   const aw = tamano.width + 2 * MARGEN_GRAFICO;
   const ah = tamano.height + 2 * MARGEN_GRAFICO;
   const fijoAncho = 2 * MARGEN_MM;
-  const fijoAlto = 2 * MARGEN_MM + CABECERA_PRIMERA_MM + PIE_MM;
+  const { cabecera, pie } = altoTextos(false, espacio);
+  const fijoAlto = 2 * MARGEN_MM + cabecera + pie;
   if (o === "portrait") {
     const e = Math.min(ESCALA_MAXIMA, (ROLLO_ANCHO_MM - fijoAncho) / aw, (ROLLO_LARGO_MAXIMO_MM - fijoAlto) / ah);
     return { ancho: ROLLO_ANCHO_MM, alto: ah * e + fijoAlto };
@@ -581,14 +631,18 @@ export interface DondeCabe {
 
 /** Para «Una sola página»: dónde cabe el árbol (ver DondeCabe). */
 export function dondeCabeUnaPagina(
-  o: { arbol: Arbol; persona: Persona; tipo: TipoGrafico; generaciones: number; simbolos: PresentacionCajas; disposicion: Disposicion; orientacion: PaperOrientation },
+  o: {
+    arbol: Arbol; persona: Persona; tipo: TipoGrafico; generaciones: number; simbolos: PresentacionCajas; disposicion: Disposicion;
+    orientacion: PaperOrientation; espacio?: Espacio;
+  },
   datos: DatosGrafico, minimo = LETRA_MINIMA_UNA_PAGINA_PT,
 ): DondeCabe {
-  const papel = PAPELES_UNA_PAGINA_Y_ROLLO.find((p) => planificarUnaPagina(datos, o.persona, o.tipo, o.generaciones, o.disposicion, p, o.orientacion, minimo).cabe) ?? null;
+  const papel = PAPELES_UNA_PAGINA_Y_ROLLO.find((p) =>
+    planificarUnaPagina(datos, o.persona, o.tipo, o.generaciones, o.disposicion, p, o.orientacion, minimo, o.espacio).cabe) ?? null;
   if (papel) return { papel, generaciones: o.generaciones };
   for (let g = o.generaciones - 1; g >= GENERACIONES_MIN; g--) {
     const d = construirGrafico(o.arbol, o.persona, o.tipo, g, o.simbolos);
-    if (planificarUnaPagina(d, o.persona, o.tipo, g, o.disposicion, ROLLO, o.orientacion, minimo).cabe) return { papel: null, generaciones: g };
+    if (planificarUnaPagina(d, o.persona, o.tipo, g, o.disposicion, ROLLO, o.orientacion, minimo, o.espacio).cabe) return { papel: null, generaciones: g };
   }
   return { papel: null, generaciones: null };
 }

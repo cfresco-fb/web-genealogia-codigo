@@ -9,7 +9,8 @@ import { Arbol } from "./arbol";
 import { prepararFechas } from "./fechas";
 import { construirGrafico } from "./grafico";
 import {
-  avisoPapel, componer, dondeCabeUnaPagina, ESCALA_MAXIMA, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT, LETRAS_UNA_PAGINA_PT,
+  avisoPapel, CABECERA_PRIMERA_MM, CABECERA_PRIMERA_SIN_SUBTITULO_MM, componer, dondeCabeUnaPagina, ESCALA_MAXIMA, ESPACIO_COMPLETO,
+  MARGEN_MM, PIE_MM, type Espacio, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT, LETRAS_UNA_PAGINA_PT,
   planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO, ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type Bloque, type Plan,
 } from "./paginasPdf";
 import { simbolosDe } from "./simbolos";
@@ -433,6 +434,25 @@ describe("PDF en mosaico", () => {
     expect(avisoPapel("A3")).toBeNull();
   });
 
+  it("componer: sin subtítulo o sin pie, su alto es para el árbol (decisión del 02/11/2026)", () => {
+    // Un árbol muy alto: la escala la decide el alto útil.
+    const alto = { width: 100, height: 3000 };
+    const util = (e: Espacio) => componer([alto], false, "A4", "portrait", e).escala * (3000 + 32);
+    expect(util({ subtitulo: true, pie: true })).toBeCloseTo(297 - 2 * MARGEN_MM - CABECERA_PRIMERA_MM - PIE_MM, 6);
+    expect(componer([alto], false, "A4", "portrait").escala).toBe(componer([alto], false, "A4", "portrait", ESPACIO_COMPLETO).escala);
+    expect(util({ subtitulo: false, pie: true })).toBeCloseTo(297 - 2 * MARGEN_MM - CABECERA_PRIMERA_SIN_SUBTITULO_MM - PIE_MM, 6);
+    expect(util({ subtitulo: true, pie: false })).toBeCloseTo(297 - 2 * MARGEN_MM - CABECERA_PRIMERA_MM, 6);
+    expect(util({ subtitulo: false, pie: false })).toBeCloseTo(297 - 2 * MARGEN_MM - CABECERA_PRIMERA_SIN_SUBTITULO_MM, 6);
+    // Sin subtítulo, el árbol empieza más arriba.
+    const sin = componer([alto], false, "A4", "portrait", { subtitulo: false, pie: false });
+    expect(sin.posiciones[0].y).toBeCloseTo(MARGEN_MM + CABECERA_PRIMERA_SIN_SUBTITULO_MM, 6);
+    // En las de continuación, el subtítulo no cuenta (la cabecera es la línea
+    // del título); el pie, sí.
+    const cont = (e: Espacio) => componer([alto], true, "A4", "portrait", e).escala;
+    expect(cont({ subtitulo: false, pie: true })).toBe(cont(ESPACIO_COMPLETO));
+    expect(cont({ subtitulo: true, pie: false })).toBeGreaterThan(cont(ESPACIO_COMPLETO));
+  });
+
   it("componer: la letra crece con el papel, y varios bloques comparten escala", () => {
     const t = { width: 1500, height: 1500 };
     expect(componer([t], false, "A3", "portrait").pt).toBeGreaterThan(componer([t], false, "A4", "portrait").pt);
@@ -547,5 +567,65 @@ describe("PDF en una sola página (decisión del 25/10/2026)", () => {
     expect(orden(dondeCabeUnaPagina(o, ocho, 4).papel)).toBeLessThanOrEqual(orden(dondeCabeUnaPagina(o, ocho, 5).papel));
     expect(orden(dondeCabeUnaPagina(o, ocho, 5).papel)).toBeLessThanOrEqual(orden(dondeCabeUnaPagina(o, ocho, 6).papel));
     expect(dondeCabeUnaPagina(o, ocho, 1000)).toEqual({ papel: null, generaciones: null });
+  });
+});
+
+describe("PDF sin subtítulo o sin pie: su sitio es para el árbol (decisión del 02/11/2026)", () => {
+  const NADA: Espacio = { subtitulo: false, pie: false };
+  const conEspacio = (
+    h: string, tipo: "ascendientes" | "descendientes" | "ambos", generaciones: number, espacio: Espacio,
+    orientacion: "auto" | "portrait" | "landscape" = "auto", disposicion: "vertical" | "horizontal" = "horizontal",
+  ) =>
+    planificarPaginas({
+      arbol, persona: arbol.persona(h)!, tipo, generaciones, simbolos: ABREV, papel: "A4", orientacion, disposicion,
+      continua: (n) => `continúa en la pág. ${n}`, espacio,
+    });
+
+  it("en una página, la composición es la de la página sin esos textos", () => {
+    const p = conEspacio("r", "ascendientes", 3, NADA, "portrait");
+    expect(p.paginas).toHaveLength(1);
+    expect(p.paginas[0].composicion).toEqual(componer(p.paginas[0].bloques.map((b) => b.tamano), false, "A4", "portrait", NADA));
+    expect(p.paginas[0].composicion.pt).toBeGreaterThanOrEqual(conEspacio("r", "ascendientes", 3, ESPACIO_COMPLETO, "portrait").paginas[0].composicion.pt);
+    // Y sin pie escrito, la página no lleva pie.
+    expect(textosPlan(arbol, p, arbol.persona("r")!, "ascendientes", "", 0, true, "Título", "")[0].pie).toBe("");
+  });
+
+  it("con varias páginas, el pie se reserva igual («Pág. 1 de N»)", () => {
+    const sin = conEspacio("r", "ascendientes", GENERACIONES, NADA, "portrait");
+    const soloPie = conEspacio("r", "ascendientes", GENERACIONES, { subtitulo: false, pie: true }, "portrait");
+    expect(sin.paginas.length).toBeGreaterThan(1);
+    expect(sin.paginas.map((x) => x.composicion)).toEqual(soloPie.paginas.map((x) => x.composicion));
+    expect(sin.paginas.length).toBeLessThanOrEqual(conEspacio("r", "ascendientes", GENERACIONES, ESPACIO_COMPLETO, "portrait").paginas.length);
+    expect(textosPlan(arbol, sin, arbol.persona("r")!, "ascendientes", "", 0, true, "Título", "")[0].pie).toMatch(/^Pág\. 1 de/);
+  });
+
+  it("si la primera página dice qué hijos van, el subtítulo se reserva igual", () => {
+    const sin = conEspacio("m", "descendientes", 2, NADA, "auto", "vertical");
+    expect(sin.paginas[0].bloques[0].hijos).toBeDefined();
+    const todo = conEspacio("m", "descendientes", 2, ESPACIO_COMPLETO, "auto", "vertical");
+    expect(sin.paginas.map((x) => x.composicion)).toEqual(todo.paginas.map((x) => x.composicion));
+  });
+
+  it("una sola página: el alto que no usan es para el árbol, también en el rollo", () => {
+    const datos = construirGrafico(arbol, arbol.persona("r")!, "ascendientes", 8, ABREV);
+    const una = (papel: "A3" | typeof ROLLO, disp: "vertical" | "horizontal", e: Espacio) =>
+      planificarUnaPagina(datos, arbol.persona("r")!, "ascendientes", 8, disp, papel, "portrait", undefined, e).plan;
+    // 8 generaciones en horizontal, en A3 vertical: la escala la decide el alto.
+    const pt = (e: Espacio) => una("A3", "horizontal", e).paginas[0].composicion.pt;
+    const alto = (cabecera: number, pie: number) => 420 - 2 * MARGEN_MM - cabecera - pie;
+    expect(pt(NADA) / pt(ESPACIO_COMPLETO)).toBeCloseTo(alto(CABECERA_PRIMERA_SIN_SUBTITULO_MM, 0) / alto(CABECERA_PRIMERA_MM, PIE_MM), 6);
+    expect(pt({ subtitulo: true, pie: false }) / pt(ESPACIO_COMPLETO)).toBeCloseTo(alto(CABECERA_PRIMERA_MM, 0) / alto(CABECERA_PRIMERA_MM, PIE_MM), 6);
+    // En el rollo, en vertical, el ancho manda: la misma letra en una hoja
+    // más corta.
+    const con = una(ROLLO, "vertical", ESPACIO_COMPLETO);
+    const sin = una(ROLLO, "vertical", NADA);
+    expect(sin.paginas[0].composicion.pt).toBeCloseTo(con.paginas[0].composicion.pt, 6);
+    expect(con.hoja!.alto - sin.hoja!.alto).toBeCloseTo(CABECERA_PRIMERA_MM + PIE_MM - CABECERA_PRIMERA_SIN_SUBTITULO_MM, 6);
+  });
+
+  it("dónde cabe en una sola página: sin subtítulo ni pie, nunca en un papel mayor", () => {
+    const o = { arbol, persona: arbol.persona("r")!, tipo: "ascendientes" as const, generaciones: 8, simbolos: ABREV, disposicion: "horizontal" as const, orientacion: "auto" as const };
+    const ocho = construirGrafico(arbol, o.persona, "ascendientes", 8, ABREV);
+    expect(rangoDonde(dondeCabeUnaPagina({ ...o, espacio: NADA }, ocho))).toBeLessThanOrEqual(rangoDonde(dondeCabeUnaPagina(o, ocho)));
   });
 });

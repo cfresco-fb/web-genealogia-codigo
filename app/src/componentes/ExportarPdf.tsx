@@ -1,7 +1,9 @@
 // Diálogo para descargar el árbol que se está viendo en PDF (decisiones del
 // 23/10/2026, «Opciones de los PDF»): primero el título y el subtítulo (por
-// defecto «Ascendientes de X»… y el nombre del árbol); después el papel (de
-// A5 a A0, B, Letter, Legal, Tabloid y ANSI, con avisos para los muy
+// defecto «Ascendientes de X»… y el nombre del árbol) y el pie de la primera
+// página (por defecto «N generaciones · datos del…»; decisión del
+// 02/11/2026: sin subtítulo o sin pie, su sitio es para el árbol); después
+// el papel (de A5 a A0, B, Letter, Legal, Tabloid y ANSI, con avisos para los muy
 // pequeños y los muy grandes), la orientación (automática por defecto) y
 // la disposición del árbol (por defecto, la del árbol en pantalla). Letra
 // mínima de 8 puntos en el papel; si no cabe en una página, páginas de
@@ -33,7 +35,7 @@ import {
 import {
   avisoPapel, dondeCabeUnaPagina, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT,
   LETRAS_UNA_PAGINA_PT, PAPELES, PAPELES_UNA_PAGINA, planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO,
-  ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type ModoPdf, type PaginaPlan, type Papel, type PapelArbol, type Plan,
+  ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type Espacio, type ModoPdf, type PaginaPlan, type Papel, type PapelArbol, type Plan,
 } from "../arbol/paginasPdf";
 import type { Persona } from "../arbol/tipos";
 import { textoMomento } from "../arbol/fechas";
@@ -136,6 +138,9 @@ function Contenido({
   const [disposicion, setDisposicion] = useState(inicial);
   const [titulo, setTitulo] = useState(() => t(`grafico.titulo.${tipo}` as Clave, { nombre: arbol.nombre(persona) }));
   const [subtitulo, setSubtitulo] = useState(subtituloInicial);
+  // El pie, como el subtítulo: cada vez, el de por defecto; null mientras no
+  // se cambie (así sigue a las generaciones elegidas aquí).
+  const [pieEscrito, setPieEscrito] = useState<string | null>(null);
   const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
   const [error, setError] = useState(false);
   const { papel, orientacion, letraUna, sencillas } = opciones;
@@ -159,6 +164,19 @@ function Contenido({
     guardarOpciones(nuevas);
   };
 
+  // Al pie de la primera página, por defecto, las generaciones y la fecha de
+  // los datos (decisión del 23/10/2026); se puede cambiar o dejar vacío
+  // (decisión del 02/11/2026).
+  const piePorDefecto = t("pdf.pieDatos", { n: generaciones, fecha: textoMomento(new Date(arbol.generada)) });
+  const pie = pieEscrito ?? piePorDefecto;
+  const pieFinal = pie.trim();
+  const subtituloFinal = subtitulo.trim();
+  // Sin subtítulo o sin pie, su sitio es para el árbol (decisión del
+  // 02/11/2026).
+  const conSubtitulo = !!subtituloFinal;
+  const conPie = !!pieFinal;
+  const espacio = useMemo<Espacio>(() => ({ subtitulo: conSubtitulo, pie: conPie }), [conSubtitulo, conPie]);
+
   // En el PDF, las fechas de las cajas con el mes abreviado («12 abr 1926»).
   const cajas = useMemo<PresentacionCajas>(
     () => ({ ...presentacion, ids: false, idsDebajo: admin && conIds, formato: "abreviado", sencillas }),
@@ -169,8 +187,9 @@ function Contenido({
   const plan = useMemo(
     () => planificarPaginas({
       arbol, persona, tipo, generaciones, simbolos: cajas, papel: papelHojas, orientacion, disposicion, continua: (n) => t("pdf.continua", { n }),
+      espacio,
     }),
-    [arbol, persona, tipo, generaciones, cajas, papelHojas, orientacion, disposicion],
+    [arbol, persona, tipo, generaciones, cajas, papelHojas, orientacion, disposicion, espacio],
   );
   const paginas = plan.paginas;
   const primero = paginas[0].bloques[0];
@@ -179,8 +198,8 @@ function Contenido({
   const formas = useMemo(() => geometria(completo, disposicion), [completo, disposicion]);
   const mosaico = useMemo(() => planificarMosaico(formas, papelHojas, orientacion), [formas, papelHojas, orientacion]);
   const unaPagina = useMemo(
-    () => (grande ? planificarUnaPagina(completo, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna) : null),
-    [grande, completo, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna],
+    () => (grande ? planificarUnaPagina(completo, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna, espacio) : null),
+    [grande, completo, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna, espacio],
   );
   const ptUna = unaPagina?.plan.paginas[0].composicion.pt ?? 0;
   // En el rollo, el largo de la hoja, en cm.
@@ -191,14 +210,14 @@ function Contenido({
   const noCabeUna = !cabe && modo === "unaPagina" && !!unaPagina && !unaPagina.cabe;
   const otra: Disposicion = disposicion === "vertical" ? "horizontal" : "vertical";
   const donde = useMemo(
-    () => (noCabeUna ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion, orientacion }, completo, letraUna) : null),
-    [noCabeUna, arbol, persona, tipo, generaciones, cajas, disposicion, orientacion, completo, letraUna],
+    () => (noCabeUna ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion, orientacion, espacio }, completo, letraUna) : null),
+    [noCabeUna, arbol, persona, tipo, generaciones, cajas, disposicion, orientacion, completo, letraUna, espacio],
   );
   const dondeOtra = useMemo(
     () => (noCabeUna
-      ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion: otra, orientacion }, completo, letraUna)
+      ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion: otra, orientacion, espacio }, completo, letraUna)
       : null),
-    [noCabeUna, arbol, persona, tipo, generaciones, cajas, otra, orientacion, completo, letraUna],
+    [noCabeUna, arbol, persona, tipo, generaciones, cajas, otra, orientacion, completo, letraUna, espacio],
   );
   // La otra disposición, si cabe en un papel más pequeño o con más
   // generaciones (si cabe en el papel elegido, se dice así).
@@ -207,21 +226,18 @@ function Contenido({
   const cabePequenas = useMemo(() => {
     if (!noCabeUna || sencillas) return false;
     const d = construirGrafico(arbol, persona, tipo, generaciones, { ...cajas, sencillas: true });
-    return planificarUnaPagina(d, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna).cabe;
-  }, [noCabeUna, sencillas, arbol, persona, tipo, generaciones, cajas, disposicion, papel, orientacion, letraUna]);
+    return planificarUnaPagina(d, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna, espacio).cabe;
+  }, [noCabeUna, sencillas, arbol, persona, tipo, generaciones, cajas, disposicion, papel, orientacion, letraUna, espacio]);
   const peor = letraMinima(plan);
   const puntos = (n: number) => formatoNumero(Math.round(n * 10) / 10);
   const aviso = rollo ? "grande" : avisoPapel(papel);
   const tituloFinal = titulo.trim();
 
-  // Al pie de la primera página, las generaciones y la fecha de los datos
-  // (decisión del 23/10/2026).
-  const piePrimera = t("pdf.pieDatos", { n: generaciones, fecha: textoMomento(new Date(arbol.generada)) });
   const enUnaPagina = !cabe && modo === "unaPagina" && !!unaPagina;
   const planPaginas: Plan = enUnaPagina ? unaPagina!.plan : plan;
   const todos = useMemo(
-    () => textosPlan(arbol, planPaginas, persona, tipo, subtitulo.trim(), 0, true, tituloFinal, piePrimera),
-    [arbol, planPaginas, persona, tipo, subtitulo, tituloFinal, piePrimera],
+    () => textosPlan(arbol, planPaginas, persona, tipo, subtituloFinal, 0, true, tituloFinal, pieFinal),
+    [arbol, planPaginas, persona, tipo, subtituloFinal, tituloFinal, pieFinal],
   );
   const textos = (p: PaginaPlan) => todos[p.numero - 1];
 
@@ -236,7 +252,7 @@ function Contenido({
         ? await exportarPaginas(planPaginas, papel, textos, dibujo, fichero, (hecho, total) => setProgreso({ hecho, total }))
         : await exportarMosaico(completo, formas.formas, persona.handle, mosaico, {
           titulo: tituloFinal,
-          pie: piePrimera,
+          pie: pieFinal,
           hoja: (n, total, fila, columna, filas, columnas) => t("pdf.hoja", { n, total, fila, columna, filas, columnas }),
         }, dibujo, fichero);
       alCerrar();
@@ -253,6 +269,7 @@ function Contenido({
     <Stack>
       <TextInput label={t("pdf.tituloPdf")} value={titulo} onChange={(e) => setTitulo(e.currentTarget.value)} />
       <TextInput label={t("pdf.subtituloPdf")} value={subtitulo} onChange={(e) => setSubtitulo(e.currentTarget.value)} />
+      <TextInput label={t("pdf.piePdf")} value={pie} onChange={(e) => setPieEscrito(e.currentTarget.value)} />
       <Select
         label={t("pdf.papel")}
         data={([...PAPELES, ROLLO] as PapelArbol[]).map((p) => ({ value: p, label: nombrePapel(p) }))}

@@ -68,7 +68,7 @@ export function Buscar() {
       {[...resultados].map(([tipo, { total: n, objetos }]) => (
         <Stack key={tipo} gap={6}>
           <Title order={2}>{t(NOMBRE_AMBITO[tipo])} ({n})</Title>
-          {objetos.map((o) => <Resultado key={o.handle} tipo={tipo} objeto={o} alAbrirFoto={setAbierta} />)}
+          {objetos.map((o) => <Resultado key={o.handle} tipo={tipo} objeto={o} admin={admin} alAbrirFoto={setAbierta} />)}
           {n > objetos.length && <Text size="xs" c="dimmed">{t("buscar.limite", { n: LIMITE })}</Text>}
         </Stack>
       ))}
@@ -77,19 +77,26 @@ export function Buscar() {
   );
 }
 
-function Resultado({ tipo, objeto, alAbrirFoto }: { tipo: TipoObjeto; objeto: Base; alAbrirFoto: (m: Multimedia) => void }) {
+// El ID de Gramps, solo para el administrador, entre corchetes y en gris al
+// final del rótulo de cada resultado (como en los formularios y el libro).
+function Id({ objeto, admin }: { objeto: Base; admin: boolean }) {
+  return admin && objeto.gramps_id ? <Text span c="dimmed"> [{objeto.gramps_id}]</Text> : null;
+}
+
+function Resultado({ tipo, objeto, admin, alAbrirFoto }: { tipo: TipoObjeto; objeto: Base; admin: boolean; alAbrirFoto: (m: Multimedia) => void }) {
   const arbol = useArbol();
+  const id = <Id objeto={objeto} admin={admin} />;
   switch (tipo) {
     case "Person":
-      return <Text><EnlacePersona persona={objeto as Persona} anios /></Text>;
+      return <Text><EnlacePersona persona={objeto as Persona} anios />{id}</Text>;
     case "Family":
-      return <Text><EnlaceFamilia familia={objeto as Familia} /></Text>;
+      return <Text><EnlaceFamilia familia={objeto as Familia} />{id}</Text>;
     case "Event": {
       const e = objeto as Evento;
       const participantes = arbol.participantes(e);
       return (
         <Text size="sm">
-          <Text span fw={600}>{nombreTipo(e.type)}</Text>
+          <Text span fw={600}>{nombreTipo(e.type)}</Text>{id}
           {" "}{[textoFecha(e.date), arbol.tituloLugar(e.place), e.description].filter(Boolean).join(" · ")}
           {participantes.map(({ tipo: tp, objeto: o }) => (
             <span key={o.handle}> — {tp === "Person" ? <EnlacePersona persona={o as Persona} /> : <EnlaceFamilia familia={o as Familia} />}</span>
@@ -99,14 +106,14 @@ function Resultado({ tipo, objeto, alAbrirFoto }: { tipo: TipoObjeto; objeto: Ba
     }
     case "Place": {
       const l = objeto as Lugar;
-      return <Text size="sm">{arbol.tituloLugar(l.handle)} <Text span c="dimmed">({nombreTipo(l.place_type)})</Text></Text>;
+      return <Text size="sm">{arbol.tituloLugar(l.handle)} <Text span c="dimmed">({nombreTipo(l.place_type)})</Text>{id}</Text>;
     }
     case "Media": {
       const m = objeto as Multimedia;
       return (
         <Group gap="sm" wrap="nowrap">
           {arbol.esImagen(m) && <Foto media={m} tam={56} alPulsar={() => alAbrirFoto(m)} />}
-          <Text size="sm">{descripcionFoto(m)}</Text>
+          <Text size="sm">{descripcionFoto(m)}{id}</Text>
         </Group>
       );
     }
@@ -115,10 +122,15 @@ function Resultado({ tipo, objeto, alAbrirFoto }: { tipo: TipoObjeto; objeto: Ba
       const de = arbol.referentes(n.handle).find((r) => r.tipo === "Person" || r.tipo === "Family");
       return (
         <Paper withBorder p="xs">
-          {de && (
-            <Anchor component={Link} size="sm" to={de.tipo === "Person" ? rutaPersona(de.objeto.handle) : rutaFamilia(de.objeto.handle)}>
-              {t("buscar.notaDe", { nombre: de.tipo === "Person" ? arbol.nombre(de.objeto as Persona) : arbol.nombreFamilia(de.objeto as Familia) })}
-            </Anchor>
+          {(de || admin) && (
+            <Text size="sm">
+              {de && (
+                <Anchor component={Link} size="sm" to={de.tipo === "Person" ? rutaPersona(de.objeto.handle) : rutaFamilia(de.objeto.handle)}>
+                  {t("buscar.notaDe", { nombre: de.tipo === "Person" ? arbol.nombre(de.objeto as Persona) : arbol.nombreFamilia(de.objeto as Familia) })}
+                </Anchor>
+              )}
+              {id}
+            </Text>
           )}
           <Text size="sm" lineClamp={3} style={{ whiteSpace: "pre-wrap" }}>{n.text.string}</Text>
         </Paper>
