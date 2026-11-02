@@ -46,9 +46,7 @@ const volverAqui = () => ({ url: window.location.origin + window.location.pathna
  * títulos, y una tarjeta sobre el fondo de la página (decisión del
  * 24/10/2026, «Diseño visual»). Antes de entrar no se puede leer el nombre
  * del árbol que fija el administrador: es el de la web. */
-/** La caja de cada pantalla de acceso, con el nombre del árbol encima y,
- * si lo hay, un pie debajo. */
-function Marco({ titulo, children, ancho = 420, pie }: { titulo: string; children: ReactNode; ancho?: number; pie?: ReactNode }) {
+function Marco({ titulo, children, ancho = 420 }: { titulo: string; children: ReactNode; ancho?: number }) {
   return (
     <Center mih="100dvh" p="md">
       <Stack w="100%" maw={ancho} gap="md">
@@ -59,7 +57,6 @@ function Marco({ titulo, children, ancho = 420, pie }: { titulo: string; childre
             {children}
           </Stack>
         </Paper>
-        {pie}
       </Stack>
     </Center>
   );
@@ -150,13 +147,7 @@ function Entrar({ correo, setCorreo, ir, pendiente, setPendiente }: PropsComunes
   }
 
   return (
-    <Marco titulo={t("acceso.entrar.titulo")} pie={
-      // El código fuente, también antes de entrar (AGPL; Carlos, 02/11/2026):
-      // la misma dirección que la página de créditos.
-      <Text ta="center" size="sm">
-        <Anchor href={URL_CODIGO_FUENTE} target="_blank" rel="noopener noreferrer" c="dimmed">{t("acceso.codigoFuente")}</Anchor>
-      </Text>
-    }>
+    <Marco titulo={t("acceso.entrar.titulo")}>
       <Text size="sm">{t("acceso.entrar.texto")}</Text>
       {pendiente && <Alert variant="light">{t("acceso.vincularGoogle", { correo: pendiente.correo })}</Alert>}
       {!pendiente && (
@@ -178,6 +169,9 @@ function Entrar({ correo, setCorreo, ir, pendiente, setPendiente }: PropsComunes
       <Anchor component="button" type="button" size="sm" onClick={() => ir("recuperar")}>{t("acceso.irRecuperar")}</Anchor>
       <Anchor component="button" type="button" size="sm" onClick={() => ir("registro")}>{t("acceso.irRegistro")}</Anchor>
       <Anchor component="button" type="button" size="sm" c="dimmed" onClick={() => ir("privacidad")}>{t("privacidad.enlace")}</Anchor>
+      {/* El código fuente, también antes de entrar (AGPL; Carlos, 02/11/2026):
+          la misma dirección que la página de créditos. */}
+      <Anchor href={URL_CODIGO_FUENTE} target="_blank" rel="noopener noreferrer" size="sm" c="dimmed" ta="center">{t("acceso.codigoFuente")}</Anchor>
     </Marco>
   );
 }
