@@ -23,7 +23,7 @@ import { Privacidad } from "./paginas/Privacidad";
 // Menú lateral en dos grupos (decisión del 24/10/2026, «Diseño visual»):
 // arriba Inicio, Árbol y Buscar (y Solicitudes, paso 12, y Administración,
 // paso 14, para el administrador y los revisores); debajo, con el rótulo
-// «Listas», las cinco listas.
+// «Listas», las cinco listas y el mapa (detrás de «Lugares», 02/11/2026).
 const MENU: [string, Clave][] = [
   ["/", "menu.inicio"],
   ["/arbol", "menu.arbol"],
@@ -35,14 +35,19 @@ const MENU_LISTAS: [string, Clave][] = [
   ["/familias", "menu.familias"],
   ["/eventos", "menu.eventos"],
   ["/lugares", "menu.lugares"],
+  ["/mapa", "menu.mapa"],
   ["/multimedia", "menu.multimedia"],
 ];
 
 // Créditos y licencias, aparte: con los textos de las licencias, solo se
 // descarga al abrirla.
 const Creditos = lazy(() => import("./paginas/Creditos").then((m) => ({ default: m.Creditos })));
+// El mapa, con Leaflet, también aparte (docs/mapa.md).
+const Mapa = lazy(() => import("./paginas/Mapa").then((m) => ({ default: m.Mapa })));
 
-const LISTAS = MENU_LISTAS.map(([ruta]) => ruta);
+// Las listas ocupan el alto de la ventana; el mapa, no (debajo puede llevar
+// la lista de lugares sin coordenadas).
+const LISTAS = MENU_LISTAS.map(([ruta]) => ruta).filter((ruta) => ruta !== "/mapa");
 const ALTO_CABECERA = 60;
 
 function Opcion({ ruta, clave, pathname }: { ruta: string; clave: Clave; pathname: string }) {
@@ -163,6 +168,7 @@ export function App() {
             <Route path="/familias" element={<ListaFamilias />} />
             <Route path="/eventos" element={<ListaEventos />} />
             <Route path="/lugares" element={<ListaLugares />} />
+            <Route path="/mapa" element={<Suspense fallback={<Center p="xl"><Loader /></Center>}><Mapa /></Suspense>} />
             <Route path="/multimedia" element={<ListaMultimedia />} />
             <Route path="/buscar" element={<Buscar />} />
             <Route path="/persona/:handle" element={<FichaPersona />} />

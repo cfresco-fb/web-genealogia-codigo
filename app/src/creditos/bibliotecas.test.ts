@@ -17,7 +17,7 @@ const AVISO = "La lista de bibliotecas no está al día: npm run creditos";
 /** Licencias revisadas: todas se pueden combinar con la AGPL-3.0. Si sale
  * una nueva, hay que comprobarlo antes de añadirla aquí. */
 const REVISADAS = new Set([
-  "MIT", "ISC", "0BSD", "BSD-3-Clause", "Apache-2.0", "OFL-1.1",
+  "MIT", "ISC", "0BSD", "BSD-2-Clause", "BSD-3-Clause", "Apache-2.0", "OFL-1.1",
   "(MIT AND Zlib)", "(MPL-2.0 OR Apache-2.0)", "MIT OR SEE LICENSE IN FEEL-FREE.md",
 ]);
 

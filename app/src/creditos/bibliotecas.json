@@ -451,13 +451,22 @@
    "texto": 25
   },
   {
+   "nombre": "leaflet",
+   "version": "1.9.4",
+   "licencia": "BSD-2-Clause",
+   "enlace": "https://leafletjs.com/",
+   "directa": true,
+   "carpeta": "node_modules/leaflet",
+   "texto": 26
+  },
+  {
    "nombre": "pako",
    "version": "2.2.0",
    "licencia": "(MIT AND Zlib)",
    "enlace": "https://github.com/nodeca/pako",
    "directa": false,
    "carpeta": "node_modules/pako",
-   "texto": 26
+   "texto": 27
   },
   {
    "nombre": "performance-now",
@@ -466,7 +475,7 @@
    "enlace": "https://github.com/braveg1rl/performance-now",
    "directa": false,
    "carpeta": "node_modules/performance-now",
-   "texto": 27
+   "texto": 28
   },
   {
    "nombre": "raf",
@@ -475,7 +484,7 @@
    "enlace": "https://github.com/chrisdickinson/raf",
    "directa": false,
    "carpeta": "node_modules/raf",
-   "texto": 28
+   "texto": 29
   },
   {
    "nombre": "react",
@@ -484,7 +493,7 @@
    "enlace": "https://reactjs.org/",
    "directa": true,
    "carpeta": "node_modules/react",
-   "texto": 29
+   "texto": 30
   },
   {
    "nombre": "react-dom",
@@ -493,7 +502,7 @@
    "enlace": "https://reactjs.org/",
    "directa": true,
    "carpeta": "node_modules/react-dom",
-   "texto": 29
+   "texto": 30
   },
   {
    "nombre": "react-number-format",
@@ -502,7 +511,7 @@
    "enlace": "https://s-yadav.github.io/react-number-format/docs/intro",
    "directa": false,
    "carpeta": "node_modules/react-number-format",
-   "texto": 30
+   "texto": 31
   },
   {
    "nombre": "react-remove-scroll",
@@ -511,7 +520,7 @@
    "enlace": "https://github.com/theKashey/react-remove-scroll",
    "directa": false,
    "carpeta": "node_modules/react-remove-scroll",
-   "texto": 31
+   "texto": 32
   },
   {
    "nombre": "react-remove-scroll-bar",
@@ -520,7 +529,7 @@
    "enlace": "https://github.com/theKashey/react-remove-scroll-bar",
    "directa": false,
    "carpeta": "node_modules/react-remove-scroll-bar",
-   "texto": 32
+   "texto": 33
   },
   {
    "nombre": "react-router",
@@ -529,7 +538,7 @@
    "enlace": "https://github.com/remix-run/react-router",
    "directa": true,
    "carpeta": "node_modules/react-router",
-   "texto": 33
+   "texto": 34
   },
   {
    "nombre": "react-style-singleton",
@@ -538,7 +547,7 @@
    "enlace": "https://github.com/theKashey/react-style-singleton",
    "directa": false,
    "carpeta": "node_modules/react-style-singleton",
-   "texto": 31
+   "texto": 32
   },
   {
    "nombre": "react-textarea-autosize",
@@ -547,7 +556,7 @@
    "enlace": "https://github.com/Andarist/react-textarea-autosize",
    "directa": false,
    "carpeta": "node_modules/react-textarea-autosize",
-   "texto": 34
+   "texto": 35
   },
   {
    "nombre": "rgbcolor",
@@ -556,7 +565,7 @@
    "enlace": "https://github.com/yetzt/node-rgbcolor",
    "directa": false,
    "carpeta": "node_modules/rgbcolor",
-   "texto": 35
+   "texto": 36
   },
   {
    "nombre": "rolldown",
@@ -565,7 +574,7 @@
    "enlace": "https://rolldown.rs/",
    "directa": false,
    "carpeta": "node_modules/rolldown",
-   "texto": 36
+   "texto": 37
   },
   {
    "nombre": "scheduler",
@@ -574,7 +583,7 @@
    "enlace": "https://reactjs.org/",
    "directa": false,
    "carpeta": "node_modules/scheduler",
-   "texto": 29
+   "texto": 30
   },
   {
    "nombre": "specificity",
@@ -583,7 +592,7 @@
    "enlace": "https://github.com/keeganstreet/specificity",
    "directa": false,
    "carpeta": "node_modules/specificity",
-   "texto": 37
+   "texto": 38
   },
   {
    "nombre": "stackblur-canvas",
@@ -592,7 +601,7 @@
    "enlace": "http://www.quasimondo.com/StackBlurForCanvas/StackBlurDemo.html",
    "directa": false,
    "carpeta": "node_modules/stackblur-canvas",
-   "texto": 38
+   "texto": 39
   },
   {
    "nombre": "svg-pathdata",
@@ -601,7 +610,7 @@
    "enlace": "https://github.com/nfroidure/svg-pathdata",
    "directa": false,
    "carpeta": "node_modules/svg-pathdata",
-   "texto": 39
+   "texto": 40
   },
   {
    "nombre": "svg2pdf.js",
@@ -610,7 +619,7 @@
    "enlace": "https://github.com/yWorks/svg2pdf.js",
    "directa": true,
    "carpeta": "node_modules/svg2pdf.js",
-   "texto": 40
+   "texto": 41
   },
   {
    "nombre": "svgpath",
@@ -619,7 +628,7 @@
    "enlace": "https://github.com/fontello/svgpath",
    "directa": false,
    "carpeta": "node_modules/svgpath",
-   "texto": 41
+   "texto": 42
   },
   {
    "nombre": "tslib",
@@ -628,7 +637,7 @@
    "enlace": "https://www.typescriptlang.org/",
    "directa": false,
    "carpeta": "node_modules/tslib",
-   "texto": 42
+   "texto": 43
   },
   {
    "nombre": "use-callback-ref",
@@ -637,7 +646,7 @@
    "enlace": "https://github.com/theKashey/use-callback-ref/",
    "directa": false,
    "carpeta": "node_modules/use-callback-ref",
-   "texto": 31
+   "texto": 32
   },
   {
    "nombre": "use-composed-ref",
@@ -646,7 +655,7 @@
    "enlace": "https://github.com/Andarist/use-composed-ref",
    "directa": false,
    "carpeta": "node_modules/use-composed-ref",
-   "texto": 43
+   "texto": 44
   },
   {
    "nombre": "use-isomorphic-layout-effect",
@@ -655,7 +664,7 @@
    "enlace": "https://github.com/Andarist/use-isomorphic-layout-effect",
    "directa": false,
    "carpeta": "node_modules/use-isomorphic-layout-effect",
-   "texto": 44
+   "texto": 45
   },
   {
    "nombre": "use-latest",
@@ -664,7 +673,7 @@
    "enlace": "https://github.com/Andarist/use-latest",
    "directa": false,
    "carpeta": "node_modules/use-latest",
-   "texto": 45
+   "texto": 46
   },
   {
    "nombre": "use-sidecar",
@@ -673,7 +682,7 @@
    "enlace": "https://github.com/theKashey/use-sidecar",
    "directa": false,
    "carpeta": "node_modules/use-sidecar",
-   "texto": 31
+   "texto": 32
   },
   {
    "nombre": "vite",
@@ -682,7 +691,7 @@
    "enlace": "https://vite.dev",
    "directa": false,
    "carpeta": "node_modules/vite",
-   "texto": 46
+   "texto": 47
   }
  ],
  "textos": [
@@ -788,6 +797,10 @@
   },
   {
    "texto": "Copyright\n(c) 2010-2025 James Hall, https://github.com/MrRio/jsPDF\n(c) 2015-2025 yWorks GmbH, https://www.yworks.com/\n\nPermission is hereby granted, free of charge, to any person obtaining\na copy of this software and associated documentation files (the\n\"Software\"), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish,\ndistribute, sublicense, and/or sell copies of the Software, and to\npermit persons to whom the Software is furnished to do so, subject to\nthe following conditions:\n\nThe above copyright notice and this permission notice shall be\nincluded in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND\nNONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE\nLIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION\nWITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+   "estandar": false
+  },
+  {
+   "texto": "BSD 2-Clause License\n\nCopyright (c) 2010-2023, Volodymyr Agafonkin\nCopyright (c) 2010-2011, CloudMade\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice,\n   this list of conditions and the following disclaimer in the documentation\n   and/or other materials provided with the distribution.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
    "estandar": false
   },
   {

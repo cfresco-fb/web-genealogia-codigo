@@ -203,6 +203,18 @@ export function Creditos() {
         ))}
       </Seccion>
 
+      {/* Las imágenes del mapa (docs/mapa.md); Leaflet, entre las bibliotecas. */}
+      <Seccion titulo={t("creditos.mapa")}>
+        <Tarjeta>
+          <Stack gap="xs">
+            <Title order={3}><EnlaceExterno href="https://www.openstreetmap.org">OpenStreetMap</EnlaceExterno></Title>
+            <Text>{t("creditos.osm")}</Text>
+            <Text size="sm" c="dimmed">{t("creditos.osmLicencia")}</Text>
+            <EnlaceExterno href="https://www.openstreetmap.org/copyright">{t("creditos.osmCopyright")}</EnlaceExterno>
+          </Stack>
+        </Tarjeta>
+      </Seccion>
+
       <Seccion titulo={t("creditos.bibliotecas")}>
         <Text c="dimmed">{t("creditos.bibliotecasAyuda", { n: bibliotecas.length })}</Text>
         <Tarjeta>
