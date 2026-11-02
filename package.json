@@ -20,6 +20,7 @@
     "subir-multimedia": "node firestore/subir_multimedia.ts",
     "miniaturas": "node firestore/miniaturas.ts",
     "tipos": "tsc && npm run tipos -w app && npm run tipos -w functions",
+    "lint": "oxlint",
     "instantanea": "node firestore/instantanea.ts",
     "sistema": "node firestore/sistema.ts",
     "web": "npm run dev -w app",
@@ -44,6 +45,7 @@
     "bcryptjs": "^3.0.3",
     "firebase": "^13.0.0",
     "firebase-tools": "^15.34.0",
+    "oxlint": "^1.90.0",
     "sharp": "^0.35.5",
     "typescript": "^7.0.2"
   }

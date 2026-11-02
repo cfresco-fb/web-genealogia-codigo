@@ -11,7 +11,7 @@
   },
   {
    "nombre": "@firebase/app",
-   "version": "0.16.3",
+   "version": "0.16.4",
    "licencia": "Apache-2.0",
    "enlace": "https://github.com/firebase/firebase-js-sdk",
    "directa": false,
@@ -29,7 +29,7 @@
   },
   {
    "nombre": "@firebase/auth",
-   "version": "1.13.7",
+   "version": "1.13.8",
    "licencia": "Apache-2.0",
    "enlace": "https://github.com/firebase/firebase-js-sdk",
    "directa": false,
@@ -47,7 +47,7 @@
   },
   {
    "nombre": "@firebase/firestore",
-   "version": "4.18.0",
+   "version": "4.19.0",
    "licencia": "Apache-2.0",
    "enlace": "https://github.com/firebase/firebase-js-sdk",
    "directa": false,
@@ -389,7 +389,7 @@
   },
   {
    "nombre": "firebase",
-   "version": "13.0.0",
+   "version": "13.1.0",
    "licencia": "Apache-2.0",
    "enlace": "https://firebase.google.com/",
    "directa": true,

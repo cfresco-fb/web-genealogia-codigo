@@ -103,13 +103,21 @@ export async function descargarInstantanea(): Promise<unknown> {
 const fotos = new Map<string, Promise<string | null>>();
 
 /** Dirección local (blob:) de un fichero de Storage, o null si no está.
- * Cada fichero se descarga una sola vez por sesión. */
+ * Cada fichero se descarga una sola vez por sesión. Si falla por otra cosa
+ * (la conexión, algo pasajero), se quita del mapa para que la próxima vez
+ * se vuelva a intentar (revisión del 02/11/2026, C4); solo si sigue siendo
+ * la misma promesa, para no quitar la de una foto recién subida
+ * (fotoLocal). */
 function urlFichero(ruta: string): Promise<string | null> {
   let url = fotos.get(ruta);
   if (!url) {
-    url = getBlob(ref(storage, ruta))
+    const esta: Promise<string | null> = getBlob(ref(storage, ruta))
       .then((blob) => URL.createObjectURL(blob))
-      .catch(() => null);
+      .catch((e: unknown) => {
+        if ((e as { code?: string }).code !== "storage/object-not-found" && fotos.get(ruta) === esta) fotos.delete(ruta);
+        return null;
+      });
+    url = esta;
     fotos.set(ruta, url);
   }
   return url;

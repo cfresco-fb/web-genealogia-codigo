@@ -246,6 +246,12 @@ export async function comprobarInstantanea(db: Firestore, cubo: Cubo): Promise<{
   for (const campo of ["personas", "familias", "referentes", "objetos"] as const) {
     if (jsonCanonico(jg[campo]) !== jsonCanonico(jr[campo])) indice.push(`${campo}: distinto`);
   }
+  // Sin condición de generación: sustituye la que haya. Si entre leer los
+  // objetos y subirla llegó un cambio cuyo disparador ya había corrido, la
+  // subida lo habría perdido; otra actualización por partes lo vuelve a
+  // aplicar (la completa lleva la secuencia leída antes que los objetos;
+  // revisión del 02/11/2026, B4).
   await subir(cubo, completa);
+  await actualizarInstantanea(db, cubo);
   return { instantanea, indice };
 }

@@ -335,6 +335,7 @@ for (const u of USUARIOS) {
         ["región sin país", con({ region: "es" })],
         ["región en otro formato", con({ region: "ES-es" })],
         ["región con un guion bajo", con({ region: "es_ES" })],
+        ["región numérica de cuatro cifras", con({ region: "es-4190" })],
         ["región que no es texto", con({ region: 34 })],
         ["región válida y símbolos no válidos", con({ region: "es-ES", simbolos: { juego: "runas" } })],
         ["modo de color automático (no se guarda)", con({ modoColor: "auto" })],
@@ -353,6 +354,8 @@ for (const u of USUARIOS) {
         const db = u.ctx().firestore();
         await segun(u.invitado, setDoc(doc(db, propia), con({ personaInicio: "p2_B" })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ region: "en-US" })));
+        // Región numérica (UN M.49), la de muchos navegadores en Hispanoamérica.
+        await segun(u.invitado, setDoc(doc(db, propia), con({ region: "es-419" })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ modoColor: "oscuro" })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ modoColor: "claro", region: "es-ES" })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ personaInicio: "p1", region: "es-ES", simbolos: { juego: "david" } })));

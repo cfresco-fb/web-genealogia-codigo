@@ -43,7 +43,7 @@ import { actualizarInstantanea, comprobarInstantanea } from "./instantanea.ts";
 import { revertir } from "./reversion.ts";
 import { aceptarCambio } from "./revision.ts";
 import { aplicarSolicitud, crearSolicitud, rechazarSolicitud, retirarSolicitud } from "./solicitudes.ts";
-import { aplicarTransaccion, ErrorTransaccion, type CodigoError } from "./transaccion.ts";
+import { aplicarTransaccion, ErrorTransaccion, leerInvitacion, type CodigoError } from "./transaccion.ts";
 import { guardarInvitacion } from "./usuarios.ts";
 
 setGlobalOptions({ region: REGION_FUNCIONES, maxInstances: 5 });
@@ -106,10 +106,18 @@ export const arbol = onCall({ enforceAppCheck: APP_CHECK_OBLIGATORIO }, async (r
     }
     if (e instanceof HttpsError) throw e;
     // Un fallo inesperado: sin esto, la web solo recibe «internal» y no
-    // puede distinguirlo de un fallo de la conexión. El texto, para el
-    // administrador (la web solo se lo enseña a él).
+    // puede distinguirlo de un fallo de la conexión. El texto, solo al
+    // administrador (revisión del 02/11/2026, B3): a los demás, null; el
+    // detalle completo queda en el registro de la función.
     logger.error("Fallo al aplicar un cambio", e);
-    throw new HttpsError("internal", "Fallo del servidor", { codigo: "INTERNO", mensaje: e instanceof Error ? e.message : String(e) });
+    let admin = false;
+    try {
+      const correo = token.email.toLowerCase();
+      admin = !correo.includes("/") && leerInvitacion((await getFirestore().doc(`invitaciones/${correo}`).get()).data())?.rol === "administrador";
+    } catch (l) {
+      logger.error("No se ha podido leer la invitación tras un fallo interno", l);
+    }
+    throw new HttpsError("internal", "Fallo del servidor", { codigo: "INTERNO", mensaje: admin ? (e instanceof Error ? e.message : String(e)) : null });
   }
 });
 
@@ -126,7 +134,19 @@ export const antesDeCrearCuenta = beforeUserCreated(async (evento) => {
   throw new ErrorAlta("permission-denied", SIN_INVITACION);
 });
 
-export const alCrearCambio = onDocumentCreated({ document: "cambios/{id}" }, async (evento) => {
+// Con reintento: si falla algo pasajero, Eventarc lo repite y la
+// instantánea no queda desfasada hasta el siguiente cambio
+// (actualizarInstantanea es idempotente). Para que un fallo que no se arregla
+// solo no se repita durante días, los avisos de hace más de una hora se dejan
+// (Carlos, 02/11/2026): la regeneración nocturna pone la instantánea al día.
+const MAXIMO_REINTENTO_MS = 60 * 60 * 1000;
+
+export const alCrearCambio = onDocumentCreated({ document: "cambios/{id}", retry: true }, async (evento) => {
+  const edad = Date.now() - Date.parse(evento.time);
+  if (edad > MAXIMO_REINTENTO_MS) {
+    logger.error("Instantánea sin actualizar: el cambio lleva más de una hora fallando; queda para la regeneración nocturna", { cambio: evento.params.id, desde: evento.time });
+    return;
+  }
   const r = await actualizarInstantanea(getFirestore(), getStorage().bucket());
   logger.info("Instantánea al día", { cambio: evento.params.id, ...r });
 });

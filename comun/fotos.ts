@@ -57,3 +57,14 @@ export const ID_SUBIDA = /^[a-z0-9]{8,40}$/;
 export const CARPETA_GRAMPS_WEB = "web/";
 export const rutaGrampsWeb = (grampsId: string, mime: TipoFoto) => `${CARPETA_GRAMPS_WEB}${grampsId}.${EXTENSION[mime]}`;
 export const subidaDesdeLaWeb = (path: unknown) => typeof path === "string" && path.startsWith(CARPETA_GRAMPS_WEB);
+
+/** El tipo de imagen por sus primeros bytes («bytes mágicos»), o null si no
+ * es ninguno de los admitidos. El servidor no se fía del tipo que declara
+ * el navegador al subir (revisión del 02/11/2026, B1). */
+export function tipoPorCabecera(bytes: Uint8Array): TipoFoto | null {
+  const empieza = (firma: number[], desde = 0) => bytes.length >= desde + firma.length && firma.every((b, i) => bytes[desde + i] === b);
+  if (empieza([0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (empieza([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (empieza([0x52, 0x49, 0x46, 0x46]) && empieza([0x57, 0x45, 0x42, 0x50], 8)) return "image/webp";
+  return null;
+}

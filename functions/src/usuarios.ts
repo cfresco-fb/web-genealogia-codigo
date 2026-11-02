@@ -12,7 +12,7 @@
  * primer administrador y para la puesta en marcha; esa no deja registro.
  */
 import { Timestamp, type Firestore } from "firebase-admin/firestore";
-import { esMapa } from "../../comun/gramps.ts";
+import { esMapa, HANDLE } from "../../comun/gramps.ts";
 import type { Rol } from "../../comun/permisos.ts";
 import { ErrorTransaccion, leerInvitacion, type Opciones } from "./transaccion.ts";
 
@@ -33,7 +33,7 @@ function leerPeticion(entrada: unknown): DatosInvitacion & { correo: string } {
   if (!esMapa(entrada)) throw mal("La petición no es un objeto");
   const { correo, persona, rol, estado } = entrada;
   if (typeof correo !== "string" || correo.length > 320 || !CORREO.test(correo.trim())) throw mal("Correo no válido");
-  if (persona !== null && (typeof persona !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(persona))) throw mal("Persona no válida");
+  if (persona !== null && (typeof persona !== "string" || !HANDLE.test(persona))) throw mal("Persona no válida");
   if (!ROLES.includes(rol as Rol)) throw mal("Rol no válido");
   if (!ESTADOS.includes(estado as EstadoInvitacion)) throw mal("Estado no válido");
   return { correo: correo.trim().toLowerCase(), persona: persona as string | null, rol: rol as Rol, estado: estado as EstadoInvitacion };

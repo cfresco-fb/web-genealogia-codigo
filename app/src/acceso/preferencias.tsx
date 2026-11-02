@@ -29,6 +29,7 @@ import {
 import type { Persona } from "../arbol/tipos";
 import { PARAMETROS_VIVOS_POR_DEFECTO, personasVivas, validarParametrosVivos, type ParametrosVivos } from "../arbol/vivos";
 import { t } from "../i18n";
+import { camposPreferencias, camposSimbolos, SIN_PROPIAS, type Propias } from "./propias";
 import { useSesion } from "./sesion";
 
 const RUTA_DEFECTO = "configuracion/presentacion";
@@ -55,15 +56,6 @@ export const MODOS_COLOR = ["auto", "claro", "oscuro"] as const;
 export type ModoColor = (typeof MODOS_COLOR)[number];
 const ESQUEMA = { auto: "auto", claro: "light", oscuro: "dark" } as const;
 
-/** Lo que cada usuario guarda para sí; null = el valor por defecto. */
-interface Propias {
-  simbolos: PreferenciaSimbolos | null;
-  personaInicio: string | null;
-  region: string | null;
-  modoColor: Exclude<ModoColor, "auto"> | null;
-  generaciones: Generaciones | null;
-}
-const SIN_PROPIAS: Propias = { simbolos: null, personaInicio: null, region: null, modoColor: null, generaciones: null };
 
 export interface Preferencias {
   /** Los símbolos que se usan ahora (los propios o, si no hay, los del árbol). */
@@ -109,13 +101,6 @@ export interface Preferencias {
 }
 
 const Contexto = createContext<Preferencias | null>(null);
-
-/** Lo que se escribe de los símbolos: solo los campos que admiten las reglas. */
-function camposSimbolos(p: PreferenciaSimbolos) {
-  return p.juego === "personalizado"
-    ? { juego: p.juego, nacimiento: p.nacimiento, defuncion: p.defuncion }
-    : { juego: p.juego };
-}
 
 /** Las preferencias propias de un documento leído (los campos que no
  * valgan, como si no estuvieran). */
@@ -196,20 +181,15 @@ export function ProveedorPreferencias({ children }: { children: ReactNode }) {
   }, [propias.region]);
 
   /** Guarda las propias: solo los campos elegidos; sin ninguno, borra el
-   * documento. */
+   * documento. Una persona de inicio que ya no está en el árbol no se
+   * escribe (propias.ts). */
   const guardarPropias = useCallback(async (cambios: Partial<Propias>) => {
-    const nuevas = { ...propias, ...cambios };
+    const { campos, propias: nuevas } = camposPreferencias({ ...propias, ...cambios }, (h) => !!arbol.persona(h));
     const ref = doc(db, rutaPropia(invitacion.correo));
-    const campos: Record<string, unknown> = {};
-    if (nuevas.simbolos) campos.simbolos = camposSimbolos(nuevas.simbolos);
-    if (nuevas.personaInicio) campos.personaInicio = nuevas.personaInicio;
-    if (nuevas.region) campos.region = nuevas.region;
-    if (nuevas.modoColor) campos.modoColor = nuevas.modoColor;
-    if (nuevas.generaciones) campos.generaciones = nuevas.generaciones;
     if (Object.keys(campos).length) await setDoc(ref, { ...campos, actualizada: serverTimestamp() });
     else await deleteDoc(ref);
     setPropias(nuevas);
-  }, [propias, invitacion.correo]);
+  }, [propias, invitacion.correo, arbol]);
 
   const guardarPropia = useCallback((p: PreferenciaSimbolos | null) => guardarPropias({ simbolos: p }), [guardarPropias]);
   const guardarPersonaInicio = useCallback((h: string | null) => guardarPropias({ personaInicio: h }), [guardarPropias]);
@@ -237,6 +217,9 @@ export function ProveedorPreferencias({ children }: { children: ReactNode }) {
 
   const vivas = useMemo(() => personasVivas(arbol, vivos), [arbol, vivos]);
 
+  // Una persona de inicio que ya no está en el árbol vale como «sin
+  // elegir» (con el árbol de ahora, también si cambia después de leerlas);
+  // al guardar, no se escribe (camposPreferencias).
   const elegida = arbol.persona(propias.personaInicio);
   const personaInicio = elegida ?? arbol.persona(invitacion.persona) ?? arbol.personaInicioGramps;
 

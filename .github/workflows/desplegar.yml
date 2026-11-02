@@ -11,6 +11,9 @@
 #   funciones). Se publica antes de desplegar, para que el enlace de la web
 #   nueva lleve siempre a un código que ya existe.
 #
+# Las acciones, fijadas al SHA de su versión (al lado, en un comentario;
+# revisadas el 02/11/2026, docs/codigo-fuente-publico.md).
+#
 # Si una comprobación encuentra algo, el flujo se para sin publicar ni
 # desplegar. Permisos: el repositorio público, con un token de grano fino
 # solo para él (secreto CODIGO_PUBLICO_TOKEN del entorno «produccion»);
@@ -55,19 +58,19 @@ jobs:
           echo "::error::El despliegue solo se lanza desde main (ahora: ${GITHUB_REF})."
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: 21
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.11"
 
@@ -82,14 +85,22 @@ jobs:
           python -m venv migracion/.venv
           migracion/.venv/bin/pip install --quiet -r migracion/requirements.txt
 
+      # Las de la migración (unittest): sin el árbol real ni Gramps de
+      # escritorio, solo la biblioteca del entorno.
+      - name: Pruebas de la migración
+        working-directory: migracion
+        run: .venv/bin/python -m unittest arbol_test tipos_propios_test
+
       - name: Emuladores de Firebase (caché)
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/firebase/emulators
           key: emuladores-${{ hashFiles('package-lock.json') }}
 
       - name: Tipos
         run: npm run tipos
+      - name: Lint
+        run: npm run lint
       - name: Pruebas de la web
         run: npm run pruebas
       - name: Pruebas del código común
@@ -150,7 +161,7 @@ jobs:
           ./gitleaks dir "$RUNNER_TEMP/instantanea" --config "$GITHUB_WORKSPACE/.gitleaks.toml" --redact --no-banner --exit-code 1
 
       - name: Guardar la instantánea
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: instantanea-${{ steps.version.outputs.etiqueta }}
           path: ${{ runner.temp }}/instantanea
@@ -165,7 +176,7 @@ jobs:
     timeout-minutes: 10
     environment: produccion
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: instantanea-${{ needs.comprobar.outputs.etiqueta }}
           path: instantanea
@@ -203,10 +214,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -214,7 +225,7 @@ jobs:
         run: npm ci
 
       - name: Permiso de Google Cloud (sin clave)
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2.1.13
         with:
           workload_identity_provider: projects/765709250464/locations/global/workloadIdentityPools/github/providers/web-genealogia
           service_account: despliegue-github@arbol-freswer.iam.gserviceaccount.com

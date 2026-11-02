@@ -17,7 +17,7 @@ import {
   Alert, Anchor, Badge, Button, Center, Group, Loader, Modal, SegmentedControl, Select, Stack, Table, Tabs, Text, TextInput, Title,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import type { Tipo } from "../../../comun/gramps.ts";
 import { useSesion } from "../acceso/sesion";
 import type { Arbol } from "../arbol/arbol";

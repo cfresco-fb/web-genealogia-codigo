@@ -125,7 +125,7 @@ service cloud.firestore {
       return d.keys().hasOnly(["simbolos", "personaInicio", "region", "modoColor", "generaciones", "actualizada"])
         && (!("simbolos" in d) || simbolosValidos(d.simbolos))
         && (!("personaInicio" in d) || personaValida(d.personaInicio))
-        && (!("region" in d) || (d.region is string && d.region.matches("[a-z]{2,3}-[A-Z]{2}")))
+        && (!("region" in d) || (d.region is string && d.region.matches("[a-z]{2,3}-([A-Z]{2}|[0-9]{3})")))
         && (!("modoColor" in d) || d.modoColor in ["claro", "oscuro"])
         && (!("generaciones" in d) || d.generaciones == "todas" || (d.generaciones is int && d.generaciones >= 2))
         && d.actualizada == request.time;

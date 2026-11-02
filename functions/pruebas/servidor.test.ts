@@ -59,6 +59,9 @@ import { CORREOS, evento, familia, ficheroArbolPrueba, INVITACIONES, lugar, nota
 type O = Record<string, any>;
 
 const { db, cubo, auth } = conectar();
+/** Bytes que pasan por JPEG (el servidor mira los primeros, B1 de la revisión
+ * del 02/11/2026) seguidos de un texto: no hace falta una foto de verdad. */
+const jpeg = (texto: string) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from(texto)]);
 // La carga escribe mucho por la consola; en las pruebas, solo los fallos.
 const log = console.log;
 
@@ -456,8 +459,8 @@ describe("aplicarTransaccion (paso 6)", () => {
 describe("fotos subidas (paso 11 b)", () => {
   beforeEach(() => cargarPrueba());
 
-  const GRANDE = Buffer.from("grande: los bytes de la foto grande");
-  const PEQUENA = Buffer.from("pequeña");
+  const GRANDE = jpeg("grande: los bytes de la foto grande");
+  const PEQUENA = jpeg("pequeña");
   async function subir(correo: string, id: string, tipo = "image/jpeg") {
     await cubo.file(rutaSubida(correo, id, "grande")).save(GRANDE, { resumable: false, contentType: tipo });
     await cubo.file(rutaSubida(correo, id, "pequena")).save(PEQUENA, { resumable: false, contentType: "image/jpeg" });
@@ -503,6 +506,32 @@ describe("fotos subidas (paso 11 b)", () => {
     await subir(CORREOS.familiar, "subida0003", "image/gif");
     await rechaza(aplicar(CORREOS.familiar, await conFoto("M1", "P", "subida0003")), "PETICION");
     assert.equal(await existe("multimedia/M1"), false);
+  });
+
+  it("el tipo de la foto se comprueba por sus primeros bytes, no por lo que declaró el navegador (B1)", async () => {
+    const conBytes = async (id: string, grande: Buffer, tipo: string, pequena = PEQUENA) => {
+      await cubo.file(rutaSubida(CORREOS.familiar, id, "grande")).save(grande, { resumable: false, contentType: tipo });
+      await cubo.file(rutaSubida(CORREOS.familiar, id, "pequena")).save(pequena, { resumable: false, contentType: "image/jpeg" });
+    };
+    // Un fichero de texto que dice ser JPEG.
+    await conBytes("subida0004", Buffer.from("esto es un texto, no una foto"), "image/jpeg");
+    await assert.rejects(aplicar(CORREOS.familiar, await conFoto("M1", "P", "subida0004")),
+      (e: unknown) => e instanceof ErrorTransaccion && e.codigo === "PETICION" && /no es una imagen del tipo que dice/.test(e.message));
+    // Un JPEG que dice ser PNG.
+    await conBytes("subida0005", GRANDE, "image/png");
+    await rechaza(aplicar(CORREOS.familiar, await conFoto("M1", "P", "subida0005")), "PETICION");
+    // La grande, bien; la pequeña, un PNG (tiene que ser JPEG). No queda
+    // nada copiado y la subida sigue en su sitio.
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from("resto")]);
+    await conBytes("subida0006", png, "image/png", png);
+    await rechaza(aplicar(CORREOS.familiar, await conFoto("M1", "P", "subida0006")), "PETICION");
+    assert.equal(await existe("multimedia/M1"), false);
+    assert.equal(await existe("miniaturas/M1"), false);
+    assert.equal(await existe(rutaSubida(CORREOS.familiar, "subida0006", "grande")), true);
+    // Un PNG de verdad, declarado como PNG: se guarda.
+    await conBytes("subida0007", png, "image/png");
+    await aplicar(CORREOS.familiar, await conFoto("M1", "P", "subida0007"));
+    assert.equal((await cubo.file("multimedia/M1").getMetadata())[0].contentType, "image/png");
   });
 
   it("espacio (DF-6): 200 MB para familiares, 1 GB para administradores; si no cabe, no se copia nada", async () => {
@@ -690,13 +719,13 @@ describe("solicitudes (paso 12)", () => {
 
   it("con fotos: se apartan hasta que se resuelva; retirarla las borra; solo la retira su autor y mientras esté pendiente", async () => {
     for (const copia of ["grande", "pequena"] as const) {
-      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(Buffer.from(copia), { resumable: false, contentType: "image/jpeg" });
+      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(jpeg(copia), { resumable: false, contentType: "image/jpeg" });
     }
     const media = { ...plantilla<O>("Media"), handle: "M1", desc: "Tío en la playa" };
     const pet = await modificar("Person", "Tio", (o) => { o.media_list.push({ ...plantilla<O>("MediaRef"), ref: "M1" }); });
     await solicitar(CORREOS.familiar, "cambio", { ...conMotivo(peticion(crear("Media", media), pet)), ficheros: [{ handle: "M1", subida: "subida0001" }] });
     const s = (await db.doc("solicitudes/s0000001").get()).data()!;
-    assert.deepEqual(s.ficheros, [{ handle: "M1", subida: "subida0001", mime: "image/jpeg", bytes: "grande".length + "pequena".length }]);
+    assert.deepEqual(s.ficheros, [{ handle: "M1", subida: "subida0001", mime: "image/jpeg", bytes: jpeg("grande").length + jpeg("pequena").length }]);
     assert.equal(s.principal.tipo, "Media");
     assert.equal(await existe(rutaApartada(CORREOS.familiar, "subida0001", "grande")), true);
     assert.equal(await existe(rutaSubida(CORREOS.familiar, "subida0001", "grande")), false);
@@ -749,7 +778,7 @@ describe("solicitudes (paso 12)", () => {
 
   it("rechazar (el administrador), con comentario; las fotos apartadas se borran", async () => {
     for (const copia of ["grande", "pequena"] as const) {
-      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(Buffer.from(copia), { resumable: false, contentType: "image/jpeg" });
+      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(jpeg(copia), { resumable: false, contentType: "image/jpeg" });
     }
     const media = { ...plantilla<O>("Media"), handle: "M1", desc: "Tío en la playa" };
     const pet = await modificar("Person", "Tio", (o) => { o.media_list.push({ ...plantilla<O>("MediaRef"), ref: "M1" }); });
@@ -764,7 +793,7 @@ describe("solicitudes (paso 12)", () => {
 
   it("modificar y aplicar (paso 14): el guardado del administrador con `resuelve` la da por aplicada, con su motivo; las fotos apartadas se borran", async () => {
     for (const copia of ["grande", "pequena"] as const) {
-      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(Buffer.from(copia), { resumable: false, contentType: "image/jpeg" });
+      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(jpeg(copia), { resumable: false, contentType: "image/jpeg" });
     }
     const media = { ...plantilla<O>("Media"), handle: "M1", desc: "Tío en la playa" };
     const pet = await modificar("Person", "Tio", (o) => { o.media_list.push({ ...plantilla<O>("MediaRef"), ref: "M1" }); o.primary_name.nick = "Pepe"; });
@@ -790,7 +819,7 @@ describe("solicitudes (paso 12)", () => {
 
   it("modificar y aplicar con una foto de la solicitud: pasa a su sitio y cuenta en el espacio de quien la pidió, que es su creador", async () => {
     for (const copia of ["grande", "pequena"] as const) {
-      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(Buffer.from(copia), { resumable: false, contentType: "image/jpeg" });
+      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(jpeg(copia), { resumable: false, contentType: "image/jpeg" });
     }
     const media = { ...plantilla<O>("Media"), handle: "M1", desc: "Tío en la playa" };
     const pet = await modificar("Person", "Tio", (o) => { o.media_list.push({ ...plantilla<O>("MediaRef"), ref: "M1" }); o.primary_name.nick = "Pepe"; });
@@ -805,11 +834,11 @@ describe("solicitudes (paso 12)", () => {
     await aplicar(CORREOS.admin, rehecha);
     const m = (await leer("Media", "M1"))!;
     assert.equal(m.desc, "En la playa");
-    assert.equal(m.checksum, createHash("md5").update("grande").digest("hex"));
+    assert.equal(m.checksum, createHash("md5").update(jpeg("grande")).digest("hex"));
     assert.equal(await existe("multimedia/M1"), true);
     assert.equal(await existe("miniaturas/M1"), true);
     assert.equal(await existe(rutaApartada(CORREOS.familiar, "subida0001", "grande")), false);
-    assert.equal((await db.doc(`limites/${CORREOS.familiar}`).get()).get("bytesFotos"), "grande".length + "pequena".length);
+    assert.equal((await db.doc(`limites/${CORREOS.familiar}`).get()).get("bytesFotos"), jpeg("grande").length + jpeg("pequena").length);
     assert.equal((await db.doc(`limites/${CORREOS.admin}`).get()).get("bytesFotos") ?? 0, 0);
     assert.equal((await db.doc("datosWeb/Media_M1").get()).get("creador.correo"), CORREOS.familiar);
     assert.equal((await db.doc("datosWeb/Person_Tio").get()).get("ultimoAutor.correo"), CORREOS.admin);
@@ -820,18 +849,18 @@ describe("solicitudes (paso 12)", () => {
 
   it("aplicar con fotos: pasan a su sitio, con su suma, y cuentan en el espacio de quien la pidió", async () => {
     for (const copia of ["grande", "pequena"] as const) {
-      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(Buffer.from(copia), { resumable: false, contentType: "image/jpeg" });
+      await cubo.file(rutaSubida(CORREOS.familiar, "subida0001", copia)).save(jpeg(copia), { resumable: false, contentType: "image/jpeg" });
     }
     const media = { ...plantilla<O>("Media"), handle: "M1", desc: "Tío en la playa" };
     const pet = await modificar("Person", "Tio", (o) => { o.media_list.push({ ...plantilla<O>("MediaRef"), ref: "M1" }); });
     await solicitar(CORREOS.familiar, "cambio", { ...conMotivo(peticion(crear("Media", media), pet)), ficheros: [{ handle: "M1", subida: "subida0001" }] });
     await resolver("aplicar", CORREOS.admin, "s0000001");
     const m = (await leer("Media", "M1"))!;
-    assert.equal(m.checksum, createHash("md5").update("grande").digest("hex"));
+    assert.equal(m.checksum, createHash("md5").update(jpeg("grande")).digest("hex"));
     assert.equal(await existe("multimedia/M1"), true);
     assert.equal(await existe("miniaturas/M1"), true);
     assert.equal(await existe(rutaApartada(CORREOS.familiar, "subida0001", "grande")), false);
-    assert.equal((await db.doc(`limites/${CORREOS.familiar}`).get()).get("bytesFotos"), "grande".length + "pequena".length);
+    assert.equal((await db.doc(`limites/${CORREOS.familiar}`).get()).get("bytesFotos"), jpeg("grande").length + jpeg("pequena").length);
     assert.equal((await db.doc(`limites/${CORREOS.admin}`).get()).get("bytesFotos") ?? 0, 0);
     // Quien la pidió es el creador de la foto.
     assert.equal((await db.doc("datosWeb/Media_M1").get()).get("creador.correo"), CORREOS.familiar);
@@ -904,6 +933,12 @@ describe("invitaciones desde la web (paso 14, DA-22 a)", () => {
     const bien = { correo: "nuevo@example.com", persona: "Tio", rol: "familiar", estado: "activa" };
     for (const mal of [{ ...bien, correo: "sin-arroba" }, { ...bien, rol: "jefe" }, { ...bien, estado: "borrada" }, { ...bien, persona: "a/b" }, null]) {
       await rechaza(guardar(CORREOS.admin, mal as O), "PETICION");
+    }
+    // Handles que no admiten las reglas ni comun/gramps.ts (con guion, de más
+    // de 50 caracteres): se rechazan antes de buscarlos en el árbol (B2).
+    for (const persona of ["Ti-o", "x".repeat(51)]) {
+      await assert.rejects(guardar(CORREOS.admin, { ...bien, persona }),
+        (e: unknown) => e instanceof ErrorTransaccion && e.codigo === "PETICION" && e.message === "Persona no válida");
     }
     await rechaza(guardar(CORREOS.admin, { ...bien, persona: "NoEsta" }), "PETICION");
     assert.equal((await db.doc("invitaciones/nuevo@example.com").get()).exists, false);
@@ -1089,7 +1124,7 @@ describe("reversión y corrección (paso 13)", () => {
 
   it("corrección del administrador: entrada «correccion»; el corregido, aceptado y con corregidoPor", async () => {
     await aplicar(CORREOS.familiar, peticion(await modificar("Person", "Padre", (o) => { o.primary_name.first_name = "Otro"; })));
-    const corregir = async (correo: string) => ({
+    const corregir = async (_correo: string) => ({
       ...peticion(await modificar("Person", "Padre", (o) => { o.primary_name.first_name = "Padre bien"; })),
       motivo: "Se escribía así", corrige: "c0000001",
     });
@@ -1280,6 +1315,24 @@ describe("función «arbol» y disparador, de punta a punta (pasos 4 y 7)", () =
       }
       assert.ok(i < 60, "el disparador no ha actualizado la instantánea");
       await new Promise((ok) => setTimeout(ok, 500));
+    }
+  });
+
+  it("un fallo interno lleva su texto solo para el administrador (B3)", async () => {
+    await auth.createUser({ email: CORREOS.admin, password: "contrasena-de-prueba", emailVerified: true }).catch(() => {});
+    // Sin el índice, la transacción falla con un Error corriente (no un
+    // ErrorTransaccion): un fallo inesperado controlado.
+    await db.doc(RUTA_INDICE).delete();
+    try {
+      const pet = peticion(await modificar("Person", "P", (o) => { o.primary_name.nick = "sin índice"; }));
+      await signInWithEmailAndPassword(authCliente, CORREOS.familiar, "contrasena-de-prueba");
+      await assert.rejects(arbol({ accion: "aplicar", peticion: pet }), (e: any) =>
+        e.code === "functions/internal" && e.details.codigo === "INTERNO" && e.details.mensaje === null);
+      await signInWithEmailAndPassword(authCliente, CORREOS.admin, "contrasena-de-prueba");
+      await assert.rejects(arbol({ accion: "aplicar", peticion: pet }), (e: any) =>
+        e.code === "functions/internal" && e.details.codigo === "INTERNO" && /No existe sistema\/indice/.test(e.details.mensaje));
+    } finally {
+      await cargarPrueba();
     }
   });
 });

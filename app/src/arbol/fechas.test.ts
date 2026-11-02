@@ -120,6 +120,18 @@ describe("formatos y regiones", () => {
     ["mes y año", "corto", "03.1850"],
   ]));
 
+  // Región numérica (UN M.49): la que traen muchos navegadores en
+  // Hispanoamérica; las reglas la admiten desde el 02/11/2026.
+  it("Hispanoamérica (es-419)", async () => {
+    expect(normalizarRegion("es-419")).toBe("es-419");
+    await en("es-419", [
+      ["simple", "largo", "29 de agosto de 1987"],
+      ["simple", "corto", "29/08/1987"],
+      ["hacia", "corto", "c. 1850"],
+    ]);
+    expect(regionFechas()).toBe("es-419");
+  });
+
   it("las frases del libro van siempre en castellano", async () => {
     await fijarRegion("en-US");
     expect(fraseFecha(fecha("simple"))).toBe("el 29 de agosto de 1987");

@@ -25,8 +25,8 @@
 import { createHash } from "node:crypto";
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import {
-  BYTES_MAXIMO_GRANDE, BYTES_MAXIMO_PEQUENA, CARPETA_MINIATURAS, CARPETA_SUBIDAS, DIAS_FOTOS_BORRADAS, rutaApartada, rutaSubida, TIPOS_FOTO,
-  type TipoFoto,
+  BYTES_MAXIMO_GRANDE, BYTES_MAXIMO_PEQUENA, CARPETA_MINIATURAS, CARPETA_SUBIDAS, DIAS_FOTOS_BORRADAS, rutaApartada, rutaSubida, tipoPorCabecera,
+  TIPOS_FOTO, type TipoFoto,
 } from "../../comun/fotos.ts";
 import type { FicheroPeticion } from "../../comun/peticion.ts";
 import { sinAvisoDeOyentes } from "./oyentes.ts";
@@ -70,8 +70,11 @@ export async function comprobarSubidas(cubo: Cubo, correo: string, ficheros: Fic
 }
 
 /** Copia cada foto a su sitio, sin pisar ninguna que ya esté (si la hay,
- * ErrorFotos, tras quitar lo que se haya copiado). Devuelve las fotos con su
- * suma y las rutas escritas. Una a una, para no tener muchas en memoria. */
+ * ErrorFotos, tras quitar lo que se haya copiado). Comprueba por sus
+ * primeros bytes que cada copia es del tipo que dice (la pequeña, siempre
+ * JPEG): comprobarSubidas solo ve el tipo que declaró el navegador.
+ * Devuelve las fotos con su suma y las rutas escritas. Una a una, para no
+ * tener muchas en memoria. */
 export async function colocarFotos(
   cubo: Cubo, correo: string, fotos: FotoSubida[], origen = rutaSubida,
 ): Promise<{ colocadas: FotoColocada[]; rutas: string[] }> {
@@ -87,8 +90,10 @@ export async function colocarFotos(
       let checksum = "";
       for (const copia of ["grande", "pequena"] as const) {
         const [bytes] = await sinAvisoDeOyentes(() => cubo.file(origen(correo, f.subida, copia)).download());
+        const tipo = copia === "grande" ? f.mime : "image/jpeg";
+        if (tipoPorCabecera(bytes) !== tipo) throw new ErrorFotos(`La foto ${f.subida} (${copia}) no es una imagen del tipo que dice`);
         if (copia === "grande") checksum = createHash("md5").update(bytes).digest("hex");
-        await cubo.file(destinos[copia]).save(bytes, { resumable: false, contentType: copia === "grande" ? f.mime : "image/jpeg" });
+        await cubo.file(destinos[copia]).save(bytes, { resumable: false, contentType: tipo });
         rutas.push(destinos[copia]);
       }
       colocadas.push({ ...f, checksum });

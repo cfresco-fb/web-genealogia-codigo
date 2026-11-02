@@ -45,6 +45,7 @@ pruebas del servidor y los generadores, Python 3.11 con
 ```
 npm ci
 npm run tipos
+npm run lint
 npm run pruebas                # web
 npm run pruebas-comun          # código común
 npm run pruebas-reglas         # reglas, con los emuladores

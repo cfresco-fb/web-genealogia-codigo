@@ -39,7 +39,7 @@ import { calentarServidor, db } from "../firebase";
 import { cambiosDePeticion, Descripcion } from "./cambiosSolicitud";
 import { enviarSolicitud } from "../solicitudes";
 import { color } from "../tema/colores";
-import { comparador, nombreTipo, t, valoresTipo, valorPersonalizado, type Clave, type TipoGramps } from "../i18n";
+import { comparador, nombreTipo, t, valoresTipo, valorPersonalizado, type Clave } from "../i18n";
 
 /** Una ficha que otro ha cambiado mientras se editaba: cómo está ahora
  * (null si se ha borrado). */
@@ -58,7 +58,7 @@ export type Paso =
 
 interface ErrorFuncion {
   message?: string;
-  details?: { codigo?: string; detalles?: unknown; mensaje?: string };
+  details?: { codigo?: string; detalles?: unknown; mensaje?: string | null };
 }
 
 /** El flujo de un formulario: el paso en que está, el error del último
