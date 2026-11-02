@@ -1,0 +1,50 @@
+{
+  "name": "web-genealogia",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "app",
+    "functions"
+  ],
+  "scripts": {
+    "emuladores": "npm run compilar -w functions && firebase emulators:start --only auth,firestore,storage,functions --import=emulador-datos --export-on-exit=emulador-datos",
+    "circuito": "node firestore/emuladores_pruebas.ts firestore,storage \"node ../firestore/circuito.ts ../datos/salida/arbol.json\"",
+    "cargar": "node firestore/cargar.ts",
+    "descargar": "node firestore/descargar.ts",
+    "comprobar-multimedia": "node firestore/comprobar_multimedia.ts",
+    "comprobar-rutas": "node firestore/comprobar_rutas.ts",
+    "subir-multimedia": "node firestore/subir_multimedia.ts",
+    "miniaturas": "node firestore/miniaturas.ts",
+    "tipos": "tsc && npm run tipos -w app && npm run tipos -w functions",
+    "instantanea": "node firestore/instantanea.ts",
+    "sistema": "node firestore/sistema.ts",
+    "web": "npm run dev -w app",
+    "compilar-web": "npm run build -w app",
+    "pruebas": "npm run test -w app",
+    "pruebas-comun": "node --test \"comun/**/*.test.ts\"",
+    "pruebas-servidor": "npm run compilar -w functions && node firestore/emuladores_pruebas.ts auth,firestore,storage,functions \"node --test ../functions/pruebas/servidor.test.ts\"",
+    "invitaciones": "node firestore/invitaciones.ts",
+    "migrar-usuarios": "node firestore/usuarios_supabase.ts",
+    "restaurar": "node firestore/restaurar.ts",
+    "autorizar-drive": "node firestore/autorizar_drive.ts",
+    "creditos": "node scripts/creditos.ts",
+    "iconos": "node scripts/iconos.ts",
+    "pruebas-reglas": "node firestore/emuladores_pruebas.ts firestore,storage \"node --test --test-reporter=spec ../reglas/reglas.test.ts\""
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@types/node": "^26.6.5",
+    "bcryptjs": "^3.0.3",
+    "firebase": "^13.0.0",
+    "firebase-tools": "^15.34.0",
+    "sharp": "^0.35.5",
+    "typescript": "^7.0.2"
+  }
+}

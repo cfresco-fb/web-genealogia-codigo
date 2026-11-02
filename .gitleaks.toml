@@ -1,0 +1,17 @@
+# Detector de secretos (gitleaks) del flujo de despliegue
+# (.github/workflows/desplegar.yml): las reglas de siempre, más una lista de
+# claves que NO son secretas y que van en la web que descarga cualquier
+# navegador (app/src/configuracion.ts). Añadir aquí una clave solo si es
+# de ese tipo; los secretos de verdad van en Secret Manager.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Claves públicas de la web"
+regexes = [
+  # apiKey de la configuración de Firebase de la web (la protegen las reglas).
+  '''AIzaSyDFuzgcSpKqwo8PQoKdDCACZl8dl42XYuM''',
+  # Clave de sitio de reCAPTCHA Enterprise de App Check.
+  '''6Lec8wouAAAAAFK2yIR9cUs-mlVLC_KibPFrhRt5''',
+]

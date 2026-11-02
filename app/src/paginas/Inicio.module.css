@@ -1,0 +1,14 @@
+/* Cifras de la página de inicio: cada una, un enlace a su lista. */
+.cifra {
+  display: block;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  background: var(--tema-superficie);
+  border: 1px solid var(--tema-linea);
+  border-radius: var(--mantine-radius-md);
+  color: var(--tema-tinta);
+}
+
+.cifra:hover {
+  border-color: var(--tema-azul);
+  background: var(--tema-azul-claro);
+}

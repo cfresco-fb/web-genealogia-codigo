@@ -1,0 +1,35 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "cambios",
+      "fieldPath": "objetos",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "solicitudes",
+      "fieldPath": "objetos",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "sistema",
+      "fieldPath": "datos",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "registroUsuarios",
+      "fieldPath": "antes",
+      "ttl": false,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "registroUsuarios",
+      "fieldPath": "despues",
+      "ttl": false,
+      "indexes": []
+    }
+  ]
+}

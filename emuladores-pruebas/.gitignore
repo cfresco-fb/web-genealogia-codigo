@@ -1,0 +1,5 @@
+# Carpeta de trabajo y temporal de los emuladores de las pruebas
+# (firestore/emuladores_pruebas.ts): sus registros y sus ficheros de
+# Storage quedan aqui y no pisan los de npm run emuladores.
+*
+!.gitignore

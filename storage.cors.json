@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://arbol-freswer.web.app", "https://arbol-freswer.firebaseapp.com", "https://arbol.freswer.org"],
+    "method": ["GET", "HEAD"],
+    "maxAgeSeconds": 3600
+  }
+]

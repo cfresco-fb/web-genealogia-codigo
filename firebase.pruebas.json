@@ -1,0 +1,51 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "emulators": {
+    "auth": {
+      "port": 9399
+    },
+    "firestore": {
+      "port": 8180,
+      "websocketPort": 9250
+    },
+    "storage": {
+      "port": 9299
+    },
+    "functions": {
+      "port": 5301
+    },
+    "eventarc": {
+      "port": 9699
+    },
+    "hub": {
+      "port": 4410
+    },
+    "logging": {
+      "port": 4510
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        "src",
+        "tsconfig.json",
+        "*.log"
+      ],
+      "predeploy": [
+        "npm run compilar -w functions"
+      ]
+    }
+  ]
+}

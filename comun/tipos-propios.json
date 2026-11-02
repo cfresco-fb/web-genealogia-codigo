@@ -1,0 +1,12 @@
+{
+ "_comentario": "Catálogo de los tipos propios (personalizados) de Gramps que se guardan como código (docs/idiomas.md, apartado 3; decisiones de Carlos del 24 y el 31/10/2026). En Gramps se guardan con su texto en «string»; en la web, «string» lleva «@» y el código (\"@separacion\"). «textos»: el texto de cada idioma (el de «es» es el de reserva). «sinonimos»: otros textos que la migración convierte en el código (sin distinguir mayúsculas, acentos ni espacios de más). Lo leen comun/tipos.ts (web y servidor) y migracion/tipos_propios.py.",
+ "tipos": [
+  {"clase": "EventType", "codigo": "separacion", "textos": {"es": "Separación"}, "sinonimos": ["Separation", "Séparation"]},
+  {"clase": "EventType", "codigo": "deportacion", "textos": {"es": "Deportación"}, "sinonimos": ["Deportation", "Deported", "Déportation"]},
+  {"clase": "FamilyRelType", "codigo": "sin_relacion", "textos": {"es": "Sin relación de pareja"}, "sinonimos": []},
+  {"clase": "PlaceType", "codigo": "cementerio", "textos": {"es": "Cementerio"}, "sinonimos": ["Cemetery", "Cimetière"]},
+  {"clase": "PlaceType", "codigo": "direccion", "textos": {"es": "Dirección"}, "sinonimos": ["Address", "Adresse"]},
+  {"clase": "AttributeType", "codigo": "correo", "textos": {"es": "Correo electrónico"}, "sinonimos": ["Email", "E-mail", "Courriel"]},
+  {"clase": "AttributeType", "codigo": "id_fusionados", "textos": {"es": "ID de Gramps fusionados"}, "sinonimos": ["Merged Gramps ID", "Identifiant Gramps fusionné"]}
+ ]
+}

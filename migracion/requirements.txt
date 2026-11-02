@@ -1,0 +1,3 @@
+# Biblioteca oficial de Gramps, misma versión que el Gramps de escritorio.
+gramps==6.0.5
+orjson

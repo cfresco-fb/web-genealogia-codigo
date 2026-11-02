@@ -1,0 +1,228 @@
+# Despliegue de la web y publicación de su código fuente
+# (docs/codigo-fuente-publico.md, apartado 4; decisiones de Carlos del
+# 29/10/2026 y del 01/11/2026). Se lanza a mano (C4), desde main:
+# Actions → Desplegar → Run workflow.
+#
+# - «ensayo» (por defecto): pruebas, compilación e instantánea del código
+#   comprobada (ficheros prohibidos y detector de secretos). No publica ni
+#   despliega; la instantánea queda como artefacto del flujo para revisarla.
+# - «completo»: además publica la instantánea en el repositorio público con
+#   su etiqueta y después despliega en Firebase (Hosting, reglas, índices y
+#   funciones). Se publica antes de desplegar, para que el enlace de la web
+#   nueva lleve siempre a un código que ya existe.
+#
+# Si una comprobación encuentra algo, el flujo se para sin publicar ni
+# desplegar. Permisos: el repositorio público, con un token de grano fino
+# solo para él (secreto CODIGO_PUBLICO_TOKEN del entorno «produccion»);
+# Firebase, con federación de identidades de carga de trabajo (sin clave
+# JSON): solo este repositorio y la rama main pueden usar la cuenta de
+# despliegue.
+
+name: Desplegar
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "ensayo: sin publicar ni desplegar · completo: publica el código y despliega"
+        type: choice
+        options: [ensayo, completo]
+        default: ensayo
+
+# Un despliegue a la vez; el segundo espera, no corta al primero.
+concurrency:
+  group: desplegar
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REPO_PUBLICO: cfresco-fb/web-genealogia-codigo
+  GITLEAKS_VERSION: "8.21.2"
+
+jobs:
+  comprobar:
+    name: Pruebas, compilación e instantánea
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      etiqueta: ${{ steps.version.outputs.etiqueta }}
+    steps:
+      - name: Solo desde main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::El despliegue solo se lanza desde main (ahora: ${GITHUB_REF})."
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dependencias
+        run: npm ci
+
+      # Biblioteca de Gramps para las pruebas del servidor (convierten el
+      # árbol de ejemplo con migracion/exportar_json.py), en la misma
+      # carpeta que en el PC.
+      - name: Entorno de Python de la migración
+        run: |
+          python -m venv migracion/.venv
+          migracion/.venv/bin/pip install --quiet -r migracion/requirements.txt
+
+      - name: Emuladores de Firebase (caché)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: emuladores-${{ hashFiles('package-lock.json') }}
+
+      - name: Tipos
+        run: npm run tipos
+      - name: Pruebas de la web
+        run: npm run pruebas
+      - name: Pruebas del código común
+        run: npm run pruebas-comun
+      - name: Pruebas de las reglas
+        run: npm run pruebas-reglas
+      - name: Pruebas del servidor
+        run: npm run pruebas-servidor
+
+      # Las pruebas no deben dejar cambios: la web compilada lleva «cambios
+      # sin confirmar» si los hay (app/vite.config.ts).
+      - name: Sin cambios en el árbol de trabajo
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo "::error::Hay cambios en el árbol de trabajo después de las pruebas."
+            exit 1
+          fi
+
+      # vAAAA.MM.DD-N: N, el número de despliegue de ese día (por las
+      # etiquetas que ya hay en el repositorio público, que se lee sin token).
+      - name: Versión
+        id: version
+        env:
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          hoy=$(date -u +%Y.%m.%d)
+          n=$( (git ls-remote --tags "https://github.com/${REPO_PUBLICO}.git" "refs/tags/v${hoy}-*" || true) | grep -c -v '\^{}$' || true)
+          etiqueta="v${hoy}-$((n + 1))"
+          echo "etiqueta=${etiqueta}" >> "$GITHUB_OUTPUT"
+          echo "Versión: ${etiqueta} (commit ${GITHUB_SHA::7})"
+
+      - name: Compilación
+        env:
+          ETIQUETA_CODIGO: ${{ steps.version.outputs.etiqueta }}
+        run: |
+          npm run compilar-web
+          npm run compilar -w functions
+
+      - name: Instantánea del código
+        run: |
+          mkdir -p "$RUNNER_TEMP/instantanea"
+          git archive --format=tar HEAD | tar -x -C "$RUNNER_TEMP/instantanea"
+          cp publico/README.md publico/LICENSE "$RUNNER_TEMP/instantanea/"
+
+      - name: Ficheros prohibidos
+        run: node scripts/comprobar_instantanea.ts "$RUNNER_TEMP/instantanea"
+
+      - name: Detector de secretos (gitleaks)
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          fichero="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfLO "${base}/${fichero}"
+          curl -sSfLO "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          sha256sum --check --ignore-missing "gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          tar -xzf "${fichero}" gitleaks
+          ./gitleaks dir "$RUNNER_TEMP/instantanea" --config "$GITHUB_WORKSPACE/.gitleaks.toml" --redact --no-banner --exit-code 1
+
+      - name: Guardar la instantánea
+        uses: actions/upload-artifact@v4
+        with:
+          name: instantanea-${{ steps.version.outputs.etiqueta }}
+          path: ${{ runner.temp }}/instantanea
+          include-hidden-files: true
+          retention-days: 14
+
+  publicar:
+    name: Publicar el código
+    needs: comprobar
+    if: inputs.modo == 'completo'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: produccion
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: instantanea-${{ needs.comprobar.outputs.etiqueta }}
+          path: instantanea
+
+      # Vacía el repositorio público (salvo .git), copia la instantánea y la
+      # sube con su commit y su etiqueta. Si la etiqueta ya existe, git push
+      # falla y no se despliega.
+      - name: Publicar en el repositorio público
+        env:
+          TOKEN: ${{ secrets.CODIGO_PUBLICO_TOKEN }}
+          ETIQUETA: ${{ needs.comprobar.outputs.etiqueta }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          git config --global user.name "Despliegue automático"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git clone --quiet "https://x-access-token:${TOKEN}@github.com/${REPO_PUBLICO}.git" publico
+          cd publico
+          git checkout --quiet -B main
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a ../instantanea/. .
+          git add -A
+          mensaje="Versión desplegada el $(date -u +%F) (commit ${GITHUB_SHA::7})"
+          git commit --quiet --allow-empty -m "$mensaje"
+          git tag -a "$ETIQUETA" -m "$mensaje"
+          git push --quiet origin main "refs/tags/${ETIQUETA}"
+          echo "Publicada: https://github.com/${REPO_PUBLICO}/tree/${ETIQUETA}"
+
+  desplegar:
+    name: Desplegar en Firebase
+    needs: [comprobar, publicar]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: produccion
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Dependencias
+        run: npm ci
+
+      - name: Permiso de Google Cloud (sin clave)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/765709250464/locations/global/workloadIdentityPools/github/providers/web-genealogia
+          service_account: despliegue-github@arbol-freswer.iam.gserviceaccount.com
+
+      # firebase.json vuelve a compilar la web (con la etiqueta, para el
+      # enlace de los créditos) y las funciones antes de subirlas. Sin
+      # --force: si el despliegue fuera a borrar funciones, falla.
+      - name: Desplegar
+        env:
+          ETIQUETA_CODIGO: ${{ needs.comprobar.outputs.etiqueta }}
+        run: npx firebase deploy --project produccion --only hosting,firestore,storage,functions --non-interactive

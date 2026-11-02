@@ -1,0 +1,47 @@
+# Datos reales de la familia: NUNCA al repositorio
+datos/*
+!datos/LEEME.md
+*.gramps
+*.gpkg
+*.ged
+
+# Migración
+migracion/.gramps-home/
+migracion/.venv/
+# Árbol de ejemplo en JSON para las pruebas del servidor (se regenera solo).
+migracion/.cache/
+# Muestras generadas para que Carlos elija (PDF del árbol de ejemplo).
+muestras/
+__pycache__/
+*.pyc
+
+# Node / Firebase
+node_modules/
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+emulador-datos/
+# Copias a medias que deja el emulador si se corta al guardar.
+firebase-export-*/
+
+# Entorno
+.env
+.env.*
+!.env.example
+# Variables de las funciones en producción (no secretas: la dirección de la
+# web); los secretos van en Secret Manager.
+!functions/.env.arbol-freswer
+
+# Web
+app/dist/
+
+# Funciones (compiladas con npm run compilar -w functions)
+functions/lib/
+
+# Resto de compilaciones de TypeScript (la web se comprueba con tsc --noEmit).
+*.tsbuildinfo
+
+# Credenciales temporales de google-github-actions/auth en el flujo de
+# despliegue (.github/workflows/desplegar.yml).
+gha-creds-*.json

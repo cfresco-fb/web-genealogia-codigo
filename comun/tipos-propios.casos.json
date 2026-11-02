@@ -1,0 +1,32 @@
+{
+ "_comentario": "Casos comunes de la conversión de los tipos propios (comun/tipos-propios.json), los mismos en comun/tipos.test.ts y en migracion/tipos_propios_test.py. «aCodigo»: texto → código (null: se queda como texto libre). «aTexto»: código → texto en un idioma.",
+ "aCodigo": [
+  {"clase": "EventType", "texto": "Separación", "codigo": "@separacion"},
+  {"clase": "EventType", "texto": "  separacion ", "codigo": "@separacion"},
+  {"clase": "EventType", "texto": "SEPARATION", "codigo": "@separacion"},
+  {"clase": "EventType", "texto": "Deportation", "codigo": "@deportacion"},
+  {"clase": "EventType", "texto": "Deported", "codigo": "@deportacion"},
+  {"clase": "EventType", "texto": "Deportación", "codigo": "@deportacion"},
+  {"clase": "FamilyRelType", "texto": "Sin relación de pareja", "codigo": "@sin_relacion"},
+  {"clase": "FamilyRelType", "texto": "Sin  relacion   de pareja", "codigo": "@sin_relacion"},
+  {"clase": "FamilyRelType", "texto": "Sin relacón de pareja", "codigo": null},
+  {"clase": "PlaceType", "texto": "Cementerio", "codigo": "@cementerio"},
+  {"clase": "PlaceType", "texto": "Dirección", "codigo": "@direccion"},
+  {"clase": "AttributeType", "texto": "Correo electrónico", "codigo": "@correo"},
+  {"clase": "AttributeType", "texto": "ID de Gramps fusionados", "codigo": "@id_fusionados"},
+  {"clase": "AttributeType", "texto": "Merged Gramps ID", "codigo": "@id_fusionados"},
+  {"clase": "AttributeType", "texto": "RIN", "codigo": null},
+  {"clase": "AttributeType", "texto": "_UID", "codigo": null},
+  {"clase": "EventType", "texto": "Cementerio", "codigo": null},
+  {"clase": "SrcAttributeType", "texto": "Correo electrónico", "codigo": null},
+  {"clase": "EventType", "texto": "Inicio de la relación", "codigo": null},
+  {"clase": "EventType", "texto": "LVG", "codigo": null},
+  {"clase": "EventType", "texto": "@separacion", "codigo": null}
+ ],
+ "aTexto": [
+  {"clase": "EventType", "codigo": "@separacion", "idioma": "es", "texto": "Separación"},
+  {"clase": "EventType", "codigo": "@deportacion", "idioma": "es", "texto": "Deportación"},
+  {"clase": "FamilyRelType", "codigo": "@sin_relacion", "idioma": "es", "texto": "Sin relación de pareja"},
+  {"clase": "AttributeType", "codigo": "@id_fusionados", "idioma": "fr", "texto": "ID de Gramps fusionados"}
+ ]
+}

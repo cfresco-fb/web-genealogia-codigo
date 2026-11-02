@@ -1,0 +1,24 @@
+# Lo que NO se publica en el repositorio público del código
+# (cfresco-fb/web-genealogia-codigo; docs/codigo-fuente-publico.md,
+# apartado 3). El flujo de despliegue hace la instantánea con git archive,
+# que se salta lo marcado con export-ignore. Todo lo demás se publica.
+
+# Documentación interna. Excepción: los dibujos originales de los iconos,
+# de los que los genera scripts/iconos.ts (Carlos, 01/11/2026).
+docs/** export-ignore
+docs/iconos -export-ignore
+docs/iconos/** -export-ignore
+/CLAUDE.md export-ignore
+
+# README interno: el público va en publico/, que el flujo copia a la raíz.
+/README.md export-ignore
+/publico export-ignore
+
+# Carpeta de los datos reales (solo su LEEME está en git).
+/datos export-ignore
+
+# Página de mudanza del dominio antiguo (Netlify): no forma parte de la web.
+/redireccion-antigua export-ignore
+
+# Notas de Carlos para su PC.
+scripts/utilidades.md export-ignore

@@ -1,0 +1,124 @@
+/* Lo que el tema de Mantine (tema.ts) no alcanza: fondo de la página,
+   alturas en el móvil, casillas, botones desactivados, menú lateral y
+   subtítulos. Solo con las variables del tema (--tema-…). */
+
+:root {
+  /* Botones, casillas y opciones del menú: 40 px; 44 en el móvil. */
+  --tema-alto-control: 2.5rem;
+}
+
+@media (max-width: 48em) {
+  :root {
+    --tema-alto-control: 2.75rem;
+  }
+}
+
+/* Fondo de página en «papel»; tarjetas, cabecera y menú en «superficie»
+   (--mantine-color-body). */
+body {
+  background-color: var(--tema-papel);
+  color: var(--tema-tinta);
+}
+
+/* Casillas: borde «linea-fuerte» sobre «superficie», en los dos modos. */
+[data-mantine-color-scheme] .mantine-Input-wrapper[data-variant="default"] {
+  --input-bd: var(--tema-linea-fuerte);
+  --input-bg: var(--tema-superficie);
+}
+
+/* Rótulos de las casillas («Nacimiento:», filtros): 14/20 600. */
+.mantine-InputWrapper-label {
+  font-weight: 600;
+}
+
+/* Ayudas de las casillas: 14/20 en «tinta-suave». */
+.mantine-InputWrapper-description {
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.25rem;
+}
+
+/* Tarjetas, cabecera, menú lateral y tablas: borde «linea»; filas alternas
+   en «papel». */
+[data-mantine-color-scheme] .mantine-Paper-root {
+  --paper-border-color: var(--tema-linea);
+}
+
+[data-mantine-color-scheme] .mantine-AppShell-root {
+  --app-shell-border-color: var(--tema-linea);
+}
+
+/* Textos emergentes: tinta sobre superficie, invertidos. */
+.mantine-Tooltip-tooltip {
+  --tooltip-bg: var(--tema-tinta);
+  --tooltip-color: var(--tema-superficie);
+}
+
+[data-mantine-color-scheme] .mantine-Table-table {
+  --table-border-color: var(--tema-linea);
+  --table-striped-color: var(--tema-papel);
+  --table-hover-color: var(--tema-azul-claro);
+}
+
+.mantine-Table-th {
+  background-color: var(--tema-superficie-hundida);
+  font-size: var(--mantine-font-size-sm);
+  font-weight: 600;
+}
+
+/* Botones desactivados: sin bloque gris, solo el texto en «tinta-suave». */
+.mantine-Button-root:where(:disabled, [data-disabled]):not([data-loading]) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--tema-tinta-suave);
+}
+
+/* Menú lateral: opciones de 40 px con el texto normal; la activa, en
+   «azul-claro» con el texto en azul y negrita. */
+.mantine-NavLink-root {
+  min-height: var(--tema-alto-control);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.mantine-NavLink-label {
+  font-size: var(--mantine-font-size-md);
+}
+
+.mantine-NavLink-root[data-active] .mantine-NavLink-label {
+  font-weight: 600;
+}
+
+/* Subtítulos (h3): 18/26 600 en la letra del texto, no en la de los
+   títulos. */
+h3.mantine-Title-root,
+h4.mantine-Title-root {
+  font-family: var(--mantine-font-family);
+}
+
+/* El nombre del árbol (cabecera y Entrar): Literata 19/26. */
+.tema-nombre-arbol {
+  font-family: var(--mantine-font-family-headings);
+  font-size: 1.1875rem;
+  line-height: 1.625rem;
+  font-weight: 600;
+  color: var(--tema-tinta);
+}
+
+/* Píldoras: «Persona de inicio» (teja) y el rol en Ajustes. */
+.tema-pildora {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.75rem;
+  border-radius: var(--mantine-radius-xl);
+  font-size: var(--mantine-font-size-sm);
+  line-height: 1.25rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--tema-tinta);
+  background: var(--tema-superficie-hundida);
+  border: 1px solid var(--tema-linea-fuerte);
+}
+
+.tema-pildora[data-inicio] {
+  background: var(--tema-teja-claro);
+  border-color: var(--tema-teja);
+}

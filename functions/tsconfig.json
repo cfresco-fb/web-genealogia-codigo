@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "..",
+    "outDir": "lib",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "../comun/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "../comun/**/*.test.ts"]
+}

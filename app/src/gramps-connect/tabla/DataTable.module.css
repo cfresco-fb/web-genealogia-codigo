@@ -1,0 +1,179 @@
+/* Procede de Gramps Connect (app/src/components/DataTable.module.css,
+   commit e00c517), AGPL-3.0-or-later. MODIFICADO el 21/10/2026: franjas
+   alternas con [data-par] (con filas virtuales, :nth-child cambia al
+   desplazar), alto de fila variable (--row-height), sin estilos de
+   selección ni de filas pendientes de cargar, y cursor de mano solo en
+   filas que se pueden pulsar. MODIFICADO el 24/10/2026 («Diseño visual»):
+   colores del tema de la web (--tema-…) en los dos modos; cabecera en
+   «superficie-hundida», filas alternas en «papel» y la del ratón en
+   «azul-claro»; letra de 15 px (cabecera, 14 px). */
+
+/* One element owns both scrollbars now (see DataTable.tsx's comment on why
+   the old split -- .tableWrapper for horizontal, a nested .scroll for
+   vertical -- pushed the vertical scrollbar out past the visible viewport
+   whenever columns overflowed horizontally). Its own right/bottom edges
+   are the visible viewport's edges regardless of scroll position in the
+   other axis, which is what keeps the vertical scrollbar reachable
+   without scrolling right first. */
+.tableWrapper {
+  overflow: auto;
+  /* Fills whatever's left of App.tsx's flex-column pane wrapper (the Box
+     around FilterBar/MessageComposer/DataTable, height: visualHeight) once
+     FilterBar (and, on the Messages view, MessageComposer) have taken their
+     own content height -- see App.tsx. Only meaningful inside that flex
+     column; the @media override below replaces it outright below the
+     stacked breakpoint, where this wrapper isn't inside one. */
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--tema-linea);
+  border-radius: var(--mantine-radius-md);
+  background: var(--tema-superficie);
+  font-size: 0.9375rem;
+  position: relative;
+}
+
+/* Native scrollbars, just wider -- WCAG 2.5.8 wants a 24px hit target and
+   the browser default (~15-17px, thinner still on some Linux themes) falls
+   short. scrollbar-width only offers auto/thin/none (no px control), so
+   Firefox gets the wider keyword; Chromium/Safari get an explicit size via
+   the (non-standard but universally supported) ::-webkit-scrollbar knobs. */
+.tableWrapper {
+  scrollbar-width: auto;
+}
+
+/* Narrow window: App.tsx drops the AppShell aside below this same
+   breakpoint (its STACKED_QUERY, Mantine's `sm`) and stacks the detail
+   panes under the table inside Main instead. Those panes size to their
+   content and let the page scroll; this one can't -- the rows are
+   virtualized against this element's own scroll offset -- so it stays a
+   fixed-height window onto the list, just a smaller one, and everything
+   below it is reached by scrolling the page. */
+@media (max-width: 48em) {
+  .tableWrapper {
+    height: 45dvh;
+    min-height: 200px;
+  }
+}
+
+.tableWrapper::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+.tableWrapper::-webkit-scrollbar-track {
+  background: var(--tema-superficie);
+}
+
+/* Default corner (where the two scrollbars meet) is opaque white in
+   Chromium/Safari regardless of theme -- make it transparent so it doesn't
+   flash white against a dark track/background. */
+.tableWrapper::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Gray rectangle inset in a white gutter: the border is drawn in the
+   track's own color and background-clip keeps the gray fill out of it, so
+   the border reads as gutter margin rather than a thumb outline. */
+.tableWrapper::-webkit-scrollbar-thumb {
+  background: var(--tema-linea-fuerte);
+  background-clip: padding-box;
+  border: 3px solid var(--tema-superficie);
+  border-radius: 3px;
+  /* Keeps the vertical thumb grabbable even though it tracks a virtualized
+     list that can be tens of thousands of rows tall (its unclamped size
+     would be just a few px) -- min-width matters far less here (no column
+     count gets anywhere near that extreme) but costs nothing to set too. */
+  min-height: 40px;
+  min-width: 40px;
+}
+
+.tableWrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--tema-tinta-suave);
+  background-clip: padding-box;
+}
+
+.header {
+  /* Pinned during vertical scroll (stays put relative to .tableWrapper's
+     own viewport) while still an ordinary in-flow child horizontally, so
+     it tracks the body's column positions during horizontal scroll for
+     free -- no separate header/body scroll containers to keep in sync. An
+     explicit background is required for sticky to actually occlude the
+     rows scrolling underneath rather than letting them show through. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--tema-superficie-hundida);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--tema-linea);
+}
+
+.headerCell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.sortable {
+  cursor: pointer;
+}
+
+.sortable:hover {
+  background: var(--tema-azul-claro);
+}
+
+.sortArrow {
+  font-size: 0.75rem;
+  color: var(--tema-azul);
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+  background: var(--tema-azul);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: var(--grid-columns, 1fr);
+  box-sizing: border-box;
+  height: var(--row-height, 28px);
+  line-height: var(--row-height, 28px);
+  border-bottom: 1px solid var(--tema-linea);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.row[data-par] {
+  background: var(--tema-papel);
+}
+
+.row:hover {
+  background: var(--tema-azul-claro);
+}
+
+/* La cabecera no cambia al pasar el ratón (solo sus columnas ordenables). */
+.header:hover {
+  background: var(--tema-superficie-hundida);
+}
+
+.cell {
+  padding: 0 0.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

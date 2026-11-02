@@ -1,0 +1,200 @@
+rules_version = '2';
+
+// Acceso por invitación (docs/acceso.md).
+//
+// Solo entra quien tiene sesión con un correo verificado y una invitación
+// activa para ese correo en invitaciones/{correo en minúsculas}. La
+// invitación se consulta en cada petición, así que revocarla corta el
+// acceso al momento. Desde la web solo se escriben las preferencias de cada
+// usuario (presentación, persona de inicio, región de las fechas, modo de
+// color, generaciones del árbol), los parámetros de quién se considera vivo y el nombre del árbol
+// (más abajo);
+// las cargas usan el SDK de administración, que no pasa por estas reglas.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function correo() {
+      return request.auth.token.email.lower();
+    }
+
+    function conCorreoVerificado() {
+      return request.auth != null
+        && request.auth.token.get("email", null) != null
+        && request.auth.token.get("email_verified", false) == true;
+    }
+
+    function invitacion() {
+      return get(/databases/$(database)/documents/invitaciones/$(correo()));
+    }
+
+    // Si no hay invitación, get() falla y la regla deniega.
+    function invitado() {
+      return conCorreoVerificado() && invitacion().data.estado == "activa";
+    }
+
+    // Para las reglas de edición de la fase 3.
+    function rol() {
+      return invitacion().data.rol;
+    }
+
+    function personaVinculada() {
+      return invitacion().data.persona;
+    }
+
+    // Todo cerrado por defecto.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Cada usuario puede leer su propia invitación (también si está
+    // revocada), para que la web sepa si tiene acceso, con qué rol y
+    // a qué persona está vinculado.
+    // El administrador las lee todas, para la pantalla de usuarios (las
+    // escribe la función del servidor, DA-22 a).
+    match /invitaciones/{c} {
+      allow get: if conCorreoVerificado() && c == correo();
+      allow read: if invitado() && rol() == "administrador";
+    }
+
+    // ---- Edición (fase 3, docs/edicion.md) ----
+    //
+    // Todo lo escribe la función del servidor con el SDK de administración,
+    // que no pasa por estas reglas (DA-1 b): desde el navegador no se
+    // escribe nada del árbol, del registro (cambios), de las solicitudes, de
+    // datosWeb, de sistema ni de los límites. Lo que no aparece aquí queda
+    // cerrado por la regla general.
+
+    // El registro de cambios: lo leen el administrador y los revisores.
+    match /cambios/{id} {
+      allow read: if invitado() && rol() in ["administrador", "revisor"];
+    }
+
+    // El registro de las invitaciones (paso 14, DA-22 a): el administrador.
+    match /registroUsuarios/{id} {
+      allow read: if invitado() && rol() == "administrador";
+    }
+
+    // Solicitudes: el administrador, todas; cada uno, las suyas (para
+    // listarlas, la consulta tiene que filtrar por autor.correo).
+    match /solicitudes/{id} {
+      allow read: if invitado() && (rol() == "administrador" || resource.data.autor.correo == correo());
+    }
+
+    // ---- Preferencias (primeras escrituras desde la web) ----
+    //
+    // Símbolos de nacimiento y defunción (docs/graficos.md): el valor por
+    // defecto del árbol lo fija el administrador en
+    // configuracion/presentacion; cada usuario puede elegir el suyo en
+    // preferencias/{su correo en minúsculas}. En ese mismo documento, su
+    // persona de inicio, la región de las fechas, el modo de color y las
+    // generaciones con que se abre el árbol
+    // (docs/acceso.md, «Ajustes»).
+
+    function simbolosValidos(s) {
+      return s is map
+        && s.keys().hasOnly(["juego", "nacimiento", "defuncion"])
+        && s.juego in ["abreviaturas", "asterisco", "david", "personalizado"]
+        && (s.juego == "personalizado"
+              ? (s.get("nacimiento", null) is string && s.nacimiento.size() >= 1 && s.nacimiento.size() <= 4
+                 && s.get("defuncion", null) is string && s.defuncion.size() >= 1 && s.defuncion.size() <= 4)
+              : !("nacimiento" in s) && !("defuncion" in s));
+    }
+
+    // Solo los símbolos y la fecha del cambio, que pone el servidor.
+    function presentacionValida() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["simbolos", "actualizada"])
+        && simbolosValidos(d.simbolos)
+        && d.actualizada == request.time;
+    }
+
+    // Persona de inicio: el handle de una persona que existe en el árbol.
+    function personaValida(h) {
+      return h is string && h.matches("[A-Za-z0-9_]{1,50}")
+        && exists(/databases/$(database)/documents/Person/$(h));
+    }
+
+    // Las preferencias propias: cada campo, si está, válido (si no está, se
+    // usa el valor por defecto: los símbolos del árbol, la persona vinculada,
+    // la región del navegador, el modo de color del sistema, 4 generaciones).
+    // La región, idioma y país («es-ES»); el modo de color, claro u oscuro;
+    // las generaciones con que se abre el árbol, un entero desde 2 (sin
+    // límite) o «todas» (decisión del 29/10/2026).
+    function preferenciasValidas() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["simbolos", "personaInicio", "region", "modoColor", "generaciones", "actualizada"])
+        && (!("simbolos" in d) || simbolosValidos(d.simbolos))
+        && (!("personaInicio" in d) || personaValida(d.personaInicio))
+        && (!("region" in d) || (d.region is string && d.region.matches("[a-z]{2,3}-[A-Z]{2}")))
+        && (!("modoColor" in d) || d.modoColor in ["claro", "oscuro"])
+        && (!("generaciones" in d) || d.generaciones == "todas" || (d.generaciones is int && d.generaciones >= 2))
+        && d.actualizada == request.time;
+    }
+
+    // La propia: leerla, escribirla y borrarla (volver a los valores por
+    // defecto).
+    match /preferencias/{c} {
+      allow get, delete: if invitado() && c == correo();
+      allow create, update: if invitado() && c == correo() && preferenciasValidas();
+    }
+
+    // El valor por defecto del árbol: lo leen todos los invitados y solo lo
+    // escribe el administrador.
+    match /configuracion/presentacion {
+      allow get: if invitado();
+      allow create, update: if invitado() && rol() == "administrador" && presentacionValida();
+    }
+
+    // ---- Quién se considera vivo (docs/libro.md) ----
+    //
+    // Los tres parámetros del cálculo «probablemente vivo» de Gramps, para
+    // todo el árbol: los leen todos los invitados y solo los escribe el
+    // administrador. Enteros, dentro de los límites de LIMITES_VIVOS
+    // (app/src/arbol/vivos.ts).
+
+    function entre(n, min, max) {
+      return n is int && n >= min && n <= max;
+    }
+
+    function vivosValidos() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["edadMaxima", "aniosGeneracion", "difHermanos", "actualizada"])
+        && entre(d.get("edadMaxima", null), 80, 150)
+        && entre(d.get("aniosGeneracion", null), 10, 50)
+        && entre(d.get("difHermanos", null), 5, 50)
+        && d.actualizada == request.time;
+    }
+
+    match /configuracion/vivos {
+      allow get: if invitado();
+      allow create, update: if invitado() && rol() == "administrador" && vivosValidos();
+    }
+
+    // ---- Nombre del árbol (docs/libro.md) ----
+    //
+    // Título de la web y de los PDF. Lo leen todos los invitados y solo lo
+    // escribe el administrador: un texto de 1 a 80 caracteres
+    // (LARGO_NOMBRE_ARBOL en app/src/acceso/preferencias.tsx).
+
+    function nombreArbolValido() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(["nombre", "actualizada"])
+        && d.get("nombre", null) is string
+        && d.nombre.size() >= 1 && d.nombre.size() <= 80
+        && d.actualizada == request.time;
+    }
+
+    match /configuracion/arbol {
+      allow get: if invitado();
+      allow create, update: if invitado() && rol() == "administrador" && nombreArbolValido();
+    }
+
+    // El árbol: los invitados pueden leerlo (la web usa la instantánea,
+    // pero la edición de la fase 3 leerá objetos sueltos).
+    match /{tipo}/{handle} {
+      allow read: if tipo in ["Tag", "Note", "Repository", "Source", "Citation",
+                              "Media", "Place", "Event", "Person", "Family", "metadatos"]
+                  && invitado();
+    }
+  }
+}

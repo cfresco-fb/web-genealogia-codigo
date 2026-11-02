@@ -1,0 +1,72 @@
+rules_version = '2';
+
+// Acceso por invitación (docs/acceso.md): la misma comprobación que en
+// firestore.rules, consultando la invitación en Firestore desde aquí
+// (firestore.get). En producción, la primera vez que se desplieguen estas
+// reglas, la consola pide permiso para que Storage lea Firestore.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function invitado() {
+      return request.auth != null
+        && request.auth.token.get("email", null) != null
+        && request.auth.token.get("email_verified", false) == true
+        // Si no hay invitación, get() falla y la regla deniega.
+        && firestore.get(/databases/(default)/documents/invitaciones/$(request.auth.token.email.lower())).data.estado == "activa";
+    }
+
+    // Todo cerrado por defecto; desde la web solo se escribe en la carpeta
+    // de paso de las fotos subidas (abajo).
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    match /instantanea/{fichero} {
+      allow read: if invitado();
+    }
+
+    match /multimedia/{fichero} {
+      allow read: if invitado();
+    }
+
+    // Copias pequeñas de las fotos subidas desde la web (paso 11 b).
+    match /miniaturas/{fichero} {
+      allow read: if invitado();
+    }
+
+    // Fotos subidas desde la web (paso 11 b; comun/fotos.ts, con los mismos
+    // tamaños y tipos): cada invitado deja la grande y la pequeña solo en su
+    // carpeta de paso, y las puede borrar; no las lee nadie. Al guardar, la
+    // función del servidor las comprueba y las pasa a multimedia/ y
+    // miniaturas/.
+    match /subidas/{correo}/{id}/{copia} {
+      function suya() {
+        return invitado() && request.auth.token.email.lower() == correo;
+      }
+      allow create, update: if suya()
+        && id.matches('^[a-z0-9]{8,40}$')
+        && ((copia == 'grande'
+             && request.resource.size <= 20 * 1024 * 1024
+             && request.resource.contentType.matches('image/(jpeg|png|webp)'))
+          || (copia == 'pequena'
+             && request.resource.size <= 2 * 1024 * 1024
+             && request.resource.contentType == 'image/jpeg'));
+      allow delete: if suya();
+    }
+
+    // Fotos apartadas de las solicitudes (paso 12): las escribe y las borra
+    // solo la función del servidor; las lee el administrador, para añadirlas
+    // al «Modificar y aplicar» una solicitud (paso 14).
+    match /solicitudes/{correo}/{id}/{copia} {
+      allow read: if invitado()
+        && firestore.get(/databases/(default)/documents/invitaciones/$(request.auth.token.email.lower())).data.rol == "administrador";
+    }
+
+    // Antes y después de los cambios muy grandes del registro (fase 3): como
+    // el registro, para el administrador y los revisores.
+    match /registro/{fichero} {
+      allow read: if invitado()
+        && firestore.get(/databases/(default)/documents/invitaciones/$(request.auth.token.email.lower())).data.rol in ["administrador", "revisor"];
+    }
+  }
+}
