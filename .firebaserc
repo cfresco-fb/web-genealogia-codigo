@@ -2,5 +2,21 @@
   "projects": {
     "default": "demo-arbol-familiar",
     "produccion": "arbol-freswer"
+  },
+  "targets": {
+    "demo-arbol-familiar": {
+      "storage": {
+        "principal": [
+          "demo-arbol-familiar.appspot.com"
+        ]
+      }
+    },
+    "arbol-freswer": {
+      "storage": {
+        "principal": [
+          "arbol-freswer.firebasestorage.app"
+        ]
+      }
+    }
   }
 }
