@@ -126,6 +126,19 @@
   border-radius: var(--mantine-radius-default);
   font-size: 14px;
 }
+/* La leyenda y los controles de Leaflet van por encima de la ventana de un
+   marcador (capas distintas: no se puede poner la ventana entre ellos).
+   Mientras está abierta, se ocultan la leyenda y, en pantallas estrechas,
+   el zoom (en el móvil se acerca con los dedos). */
+.mapa-con-ventana .leyenda-mapa {
+  display: none;
+}
+@media (max-width: 48em) {
+  .mapa-con-ventana .leaflet-control-zoom {
+    display: none;
+  }
+}
+
 .leyenda-mapa .marcador-mapa {
   display: inline-block;
   width: 22px;

@@ -292,8 +292,10 @@ export function Mapa() {
         </Group>
       </Group>
 
-      {/* isolation: la leyenda (z-index 1000, sobre el mapa) no tapa las ventanas de la web. */}
-      <Box pos="relative" style={{ isolation: "isolate" }}>
+      {/* isolation: la leyenda (z-index 1000, sobre el mapa) no tapa las ventanas de la web.
+          Con la ventana de un marcador abierta, la leyenda (y en el móvil, el zoom) se ocultan:
+          van por encima de ella y la tapaban (mapa.css). */}
+      <Box pos="relative" style={{ isolation: "isolate" }} className={elegido ? "mapa-con-ventana" : undefined}>
         <div ref={caja} style={{ height: "calc(100dvh - 300px)", minHeight: 360 }} />
         <div className="leyenda-mapa" aria-label={t("mapa.leyenda")}>
           {LEYENDA.map(([clase, aproximado, clave]) => (
