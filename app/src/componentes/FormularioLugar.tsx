@@ -10,9 +10,14 @@
 // Como la nota, por su cuenta (guarda con la función del servidor) o como
 // borrador dentro del formulario de evento («Nuevo lugar»), que lo guarda
 // con el evento en un solo «Guardar».
+//
+// «Buscar coordenadas» (añadido 5 del mapa, 02/11/2026; docs/mapa.md):
+// Nominatim por el nombre y el lugar superior; al elegir un resultado se
+// rellenan la latitud y la longitud, que se pueden corregir antes de
+// guardar.
 
 import { useMemo, useState } from "react";
-import { Alert, Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { nuevoHandle, type ObjetoGramps } from "../../../comun/gramps.ts";
 import { plantilla } from "../../../comun/esquema.ts";
@@ -22,8 +27,9 @@ import { useArbol } from "../arbol/contexto";
 import { textoFecha } from "../arbol/fechas";
 import type { Base, Lugar, Ref } from "../arbol/tipos";
 import { RecordPicker } from "../gramps-connect/formularios/RecordPicker";
+import { buscarEnNominatim, Limitador, type ResultadoNominatim } from "../arbol/nominatim";
 import { BorrarFicha } from "./BorrarFicha";
-import { nombreTipo, t } from "../i18n";
+import { idioma, nombreTipo, t } from "../i18n";
 import {
   AvisoPropuesta, CampoMotivo, Conflicto, Hecho, lineaCambio, PantallaSolicitud, PieEditar, SelectorTipo, tipoDe, useGuardado, useSinGuardar, VentanaFormulario,
 } from "./Formulario";
@@ -251,12 +257,83 @@ function Contenido({ lugar, borrador = false, alTerminar, alCerrar }: Props) {
           <TextInput label={t("col.latitud")} value={campos.lat} onChange={(e) => fijar("lat", e.currentTarget.value)} error={latBien ? undefined : t("lugar.errorLatitud")} inputMode="decimal" />
           <TextInput label={t("col.longitud")} value={campos.long} onChange={(e) => fijar("long", e.currentTarget.value)} error={longBien ? undefined : t("lugar.errorLongitud")} inputMode="decimal" />
         </Group>
+        <BuscarCoordenadas
+          texto={campos.nombre.trim() ? tituloBorrador(arbol, lugarCon(base, campos)) : ""}
+          alElegir={(r) => setCampos((x) => ({ ...x, lat: r.lat, long: r.long }))}
+        />
       </Stack>
       {campos.nombre.trim() && <Text size="sm" c="dimmed">{t("lugar.seVera", { titulo: tituloBorrador(arbol, lugarCon(base, campos)) })}</Text>}
       {conOtrosDatos && <Alert color="gray">{t("lugar.otrosDatos")}</Alert>}
       {!borrador && <CampoMotivo valor={motivo} alCambiar={setMotivo} />}
       {!borrador && !nuevo && <Group><BorrarFicha tipo="Place" handle={base.handle} alBorrar={alCerrar} /></Group>}
       {pie()}
+    </Stack>
+  );
+}
+
+/** Uno para toda la web: como mucho una consulta por segundo a Nominatim,
+ * también entre formularios. */
+const limitador = new Limitador();
+
+/** «Buscar coordenadas»: una consulta a Nominatim solo al pulsar (sin
+ * sugerencias al escribir), con el botón desactivado un segundo después;
+ * hasta 5 resultados con su nombre completo y la atribución a
+ * OpenStreetMap. */
+function BuscarCoordenadas({ texto, alElegir }: { texto: string; alElegir: (r: ResultadoNominatim) => void }) {
+  const [buscando, setBuscando] = useState(false);
+  const [esperando, setEsperando] = useState(false);
+  const [error, setError] = useState(false);
+  const [resultados, setResultados] = useState<ResultadoNominatim[] | null>(null);
+
+  async function buscar() {
+    if (!limitador.pasar()) return;
+    setEsperando(true);
+    setTimeout(() => setEsperando(false), limitador.espera());
+    setBuscando(true);
+    setError(false);
+    try {
+      setResultados(await buscarEnNominatim(texto, idioma().codigo));
+    } catch {
+      setResultados(null);
+      setError(true);
+    } finally {
+      setBuscando(false);
+    }
+  }
+
+  return (
+    <Stack gap={4}>
+      <Group gap="xs">
+        <Button size="xs" variant="default" onClick={() => void buscar()} loading={buscando} disabled={!texto || esperando}>
+          {t("lugar.buscarCoordenadas")}
+        </Button>
+        {texto && <Text size="sm" c="dimmed">{t("lugar.buscaraPor", { texto })}</Text>}
+      </Group>
+      {error && <Text size="sm" c="red">{t("lugar.errorBusqueda")}</Text>}
+      {resultados && (
+        <Stack gap={2}>
+          {resultados.length === 0 && <Text size="sm" c="dimmed">{t("lugar.sinResultados")}</Text>}
+          {resultados.map((r, i) => (
+            <Button
+              key={`${r.lat},${r.long},${i}`}
+              size="xs"
+              variant="subtle"
+              justify="flex-start"
+              styles={{ root: { height: "auto" }, label: { whiteSpace: "normal", textAlign: "left", paddingBlock: 4 } }}
+              onClick={() => {
+                alElegir(r);
+                setResultados(null);
+              }}
+            >
+              {r.nombre} ({r.lat}, {r.long})
+            </Button>
+          ))}
+          <Text size="sm" c="dimmed">
+            {t("lugar.resultadosDe")}{" "}
+            <Anchor href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" size="sm">{t("lugar.colaboradoresOsm")}</Anchor>
+          </Text>
+        </Stack>
+      )}
     </Stack>
   );
 }

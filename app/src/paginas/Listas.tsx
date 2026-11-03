@@ -13,7 +13,7 @@ import { FormularioLugar } from "../componentes/FormularioLugar";
 import { IconoEditar } from "../componentes/Iconos";
 import { ContextoPropuesta, usePermisos } from "../arbol/permisos";
 import { Foto, VisorFoto } from "../componentes/Foto";
-import { rutaFamilia, rutaPersona } from "../componentes/Enlaces";
+import { EnlaceLugar, rutaFamilia, rutaPersona } from "../componentes/Enlaces";
 import { nombreTipo, t } from "../i18n";
 
 /** El ID de Gramps (columna y filtro), solo para el administrador (decisión
@@ -266,7 +266,8 @@ export function ListaLugares() {
   type Fila = { l: Lugar; titulo: string; superior: string; tipo: string };
 
   const columnas = useMemo((): ColumnaLista<Fila>[] => sinId<Fila>(admin, [
-    { clave: "nombre", etiqueta: t("col.nombre"), ancho: 200, celda: (x) => x.l.name.value, valor: (x) => x.l.name.value },
+    // El nombre, enlazado a la ficha del lugar (añadidos del mapa, 02/11/2026).
+    { clave: "nombre", etiqueta: t("col.nombre"), ancho: 200, celda: (x) => <EnlaceLugar handle={x.l.handle} texto={x.l.name.value} />, valor: (x) => x.l.name.value },
     { clave: "tipo", etiqueta: t("col.tipo"), ancho: 130, celda: (x) => x.tipo, valor: (x) => x.tipo },
     { clave: "superior", etiqueta: t("col.lugarSuperior"), ancho: 260, celda: (x) => x.superior, titulo: (x) => x.superior, valor: (x) => x.superior },
     { clave: "titulo", etiqueta: t("col.titulo"), ancho: 320, visible: false, celda: (x) => x.titulo, titulo: (x) => x.titulo, valor: (x) => x.titulo },

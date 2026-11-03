@@ -10,6 +10,7 @@ import { usePermisos } from "../arbol/permisos";
 import type { Evento, Familia, MediaRef, Multimedia, Persona } from "../arbol/tipos";
 import { nombreTipo, t } from "../i18n";
 import { type EventosPendientes, MarcaPendiente } from "./AvisoSolicitudes";
+import { EnlaceLugar } from "./Enlaces";
 import { Foto, VisorFoto } from "./Foto";
 import { FormularioEvento } from "./FormularioEvento";
 import { IconoEditar } from "./Iconos";
@@ -178,7 +179,12 @@ export function TablaEventos({ eventos: delArbol, conyugeDe, pendientes }: {
                   return conyuge ? t("ficha.eventoDeFamilia", { tipo: tp, nombre: conyuge }) : tp;
                 })}{rol}</Table.Td>
                 <Table.Td style={{ whiteSpace: "nowrap", ...estilo }}>{casilla((x) => textoFecha(x.date))}</Table.Td>
-                <Table.Td style={estilo}>{casilla((x) => arbol.tituloLugar(x.place))}</Table.Td>
+                {/* El lugar, enlazado a su ficha (añadidos del mapa, 02/11/2026), salvo si se ha pedido cambiarlo. */}
+                <Table.Td style={estilo}>
+                  {cambiado && cambiado.evento.place !== e.evento.place
+                    ? casilla((x) => arbol.tituloLugar(x.place))
+                    : <EnlaceLugar handle={e.evento.place} />}
+                </Table.Td>
                 {conDescripcion && <Table.Td style={estilo}>{casilla((x) => x.description)}</Table.Td>}
                 <Table.Td style={{ width: 1, whiteSpace: "nowrap" }}>
                   <Group gap="xs" wrap="nowrap" justify="flex-end">

@@ -14,9 +14,13 @@
 //   contienen no cuentan).
 // - Los lugares con las mismas coordenadas, en un solo punto, con todos sus
 //   nombres y todos sus eventos.
+// - Añadidos (02/11/2026, docs/encargo-mapa-anadidos.md): grupos de eventos
+//   y filtro de años (los eventos que quedan son los que se pasan a
+//   datosMapa), recorrido de una persona y personas de una rama.
 
-import { porFecha } from "./fechas";
-import type { Evento, Lugar, TipoGramps } from "./tipos";
+import type { Arbol } from "./arbol";
+import { anio, porFecha, valorOrden } from "./fechas";
+import type { Evento, Lugar, Persona, TipoGramps } from "./tipos";
 
 // ---- Coordenadas ----
 
@@ -199,6 +203,22 @@ const PRIORIDAD: ClaseLugar[] = ["cementerio", "ciudad", "resto", "pais"];
  * con las mismas coordenadas caigan juntos. */
 const claveDe = (lat: number, lon: number) => `${lat.toFixed(6)},${lon.toFixed(6)}`;
 
+/** Las coordenadas de un lugar o, si no tiene, las del primero que las
+ * tenga subiendo por la jerarquía (el lugar superior principal, como el
+ * título); `de`, ese lugar (null si son las suyas). null si no hay. */
+export function situarLugar(lugares: Map<string, Lugar>, handle: string): { coordenadas: [number, number]; de: Lugar | null } | null {
+  const lugar = lugares.get(handle);
+  const vistos = new Set<string>();
+  let actual: Lugar | undefined = lugar;
+  while (actual && !vistos.has(actual.handle)) {
+    vistos.add(actual.handle);
+    const c = leerCoordenadas(actual.lat, actual.long);
+    if (c) return { coordenadas: c, de: actual === lugar ? null : actual };
+    actual = lugares.get(actual.placeref_list[0]?.ref ?? "");
+  }
+  return null;
+}
+
 export function datosMapa(lugares: Map<string, Lugar>, eventos: Iterable<Evento>): DatosMapa {
   const porLugar = new Map<string, Evento[]>();
   for (const e of eventos) {
@@ -208,26 +228,11 @@ export function datosMapa(lugares: Map<string, Lugar>, eventos: Iterable<Evento>
     else porLugar.set(e.place, [e]);
   }
 
-  const propias = (l: Lugar) => leerCoordenadas(l.lat, l.long);
-  /** Las coordenadas del lugar o, si no tiene, las del primero que las
-   * tenga subiendo por la jerarquía. */
-  function situar(l: Lugar): { coordenadas: [number, number]; de: Lugar | null } | null {
-    const vistos = new Set<string>();
-    let actual: Lugar | undefined = l;
-    while (actual && !vistos.has(actual.handle)) {
-      vistos.add(actual.handle);
-      const c = propias(actual);
-      if (c) return { coordenadas: c, de: actual === l ? null : actual };
-      actual = lugares.get(actual.placeref_list[0]?.ref ?? "");
-    }
-    return null;
-  }
-
   const puntos = new Map<string, { lat: number; lon: number; lugares: LugarEnPunto[]; eventos: Evento[] }>();
   const sinCoordenadas: Lugar[] = [];
   for (const [handle, evs] of porLugar) {
     const lugar = lugares.get(handle)!;
-    const sitio = situar(lugar);
+    const sitio = situarLugar(lugares, handle);
     if (!sitio) {
       sinCoordenadas.push(lugar);
       continue;
@@ -257,4 +262,125 @@ export function datosMapa(lugares: Map<string, Lugar>, eventos: Iterable<Evento>
     }),
     sinCoordenadas: sinCoordenadas.sort((a, b) => nombre(a).localeCompare(nombre(b))),
   };
+}
+
+// ---- Filtros (añadido 1) ----
+
+export type GrupoEvento = "nacimientos" | "defunciones" | "bodas" | "otros";
+export const GRUPOS_EVENTO: GrupoEvento[] = ["nacimientos", "defunciones", "bodas", "otros"];
+
+/** Grupo de cada tipo de evento de Gramps (EventType). Nacimientos:
+ * nacimiento, bautismo, bautizo y bautismo de adulto. Defunciones:
+ * defunción, entierro e incineración. Bodas: matrimonio y los relacionados
+ * (amonestaciones, licencia, contrato, capitulaciones, compromiso,
+ * matrimonio alternativo, divorcio, demanda de divorcio y anulación). Los
+ * demás y los tipos propios, otros. */
+const GRUPO: Record<number, GrupoEvento> = {
+  12: "nacimientos", 14: "nacimientos", 15: "nacimientos", 22: "nacimientos",
+  13: "defunciones", 19: "defunciones", 24: "defunciones",
+  1: "bodas", 2: "bodas", 3: "bodas", 4: "bodas", 5: "bodas", 6: "bodas", 7: "bodas", 8: "bodas", 9: "bodas", 10: "bodas",
+};
+
+export const grupoEvento = (tipo: TipoGramps): GrupoEvento => (tipo.value === 0 ? "otros" : GRUPO[tipo.value] ?? "otros");
+
+export interface FiltroEventos {
+  grupos: ReadonlySet<GrupoEvento>;
+  /** Años, como en las listas (anio: el de la fecha, también si es
+   * aproximada); null, sin límite. */
+  desde: number | null;
+  hasta: number | null;
+}
+
+/** Los eventos con lugar que pasan el filtro y cuántos se quitan solo por no
+ * tener fecha (con «desde» o «hasta» puestos; de los grupos marcados). */
+export function filtrarEventos(eventos: Iterable<Evento>, f: FiltroEventos): { eventos: Evento[]; sinFecha: number } {
+  const conAnios = f.desde !== null || f.hasta !== null;
+  const out: Evento[] = [];
+  let sinFecha = 0;
+  for (const e of eventos) {
+    if (!e.place || !f.grupos.has(grupoEvento(e.type))) continue;
+    if (conAnios) {
+      const a = anio(e.date);
+      if (a === null) {
+        sinFecha++;
+        continue;
+      }
+      if ((f.desde !== null && a < f.desde) || (f.hasta !== null && a > f.hasta)) continue;
+    }
+    out.push(e);
+  }
+  return { eventos: out, sinFecha };
+}
+
+// ---- Una persona y su rama (añadido 3) ----
+
+/** Los eventos de unas personas (los propios y los de sus familias), sin
+ * repetir. */
+export function eventosDePersonas(arbol: Arbol, personas: Iterable<Persona>): Evento[] {
+  const vistos = new Map<string, Evento>();
+  for (const p of personas) for (const { evento } of arbol.eventosPersonaGuardados(p)) vistos.set(evento.handle, evento);
+  return [...vistos.values()];
+}
+
+/** El recorrido de una persona: las coordenadas de sus eventos con fecha y
+ * lugar, por orden de fecha (los que no tienen fecha, fuera), sin repetir
+ * un punto seguido. `eventos`: los suyos que se ven (ya filtrados). */
+export function recorrido(lugares: Map<string, Lugar>, eventos: Evento[]): [number, number][] {
+  const linea: [number, number][] = [];
+  for (const e of porFecha(eventos.filter((x) => valorOrden(x.date) !== null), (x) => x.date)) {
+    const sitio = situarLugar(lugares, e.place);
+    if (!sitio) continue;
+    const ultimo = linea[linea.length - 1];
+    if (!ultimo || ultimo[0] !== sitio.coordenadas[0] || ultimo[1] !== sitio.coordenadas[1]) linea.push(sitio.coordenadas);
+  }
+  return linea;
+}
+
+export type TipoRama = "ascendientes" | "descendientes" | "ambos";
+export const TIPOS_RAMA: TipoRama[] = ["ascendientes", "descendientes", "ambos"];
+
+/** Las personas de la rama de `persona` con `generaciones` generaciones
+ * (contando la suya), por los mismos caminos que el árbol: hacia arriba,
+ * los padres de la primera familia; hacia abajo, los hijos de todas sus
+ * familias y, como en el árbol, los cónyuges de cada uno (también los de
+ * `persona`). Un ciclo en los datos no se recorre dos veces. «Ambos», como
+ * en el árbol: los ascendientes y los descendientes, cada uno con
+ * `generaciones`. */
+export function personasRama(arbol: Arbol, persona: Persona, tipo: TipoRama, generaciones: number): Persona[] {
+  if (tipo === "ambos") {
+    const juntas = new Map<string, Persona>();
+    for (const t of ["ascendientes", "descendientes"] as const) {
+      for (const p of personasRama(arbol, persona, t, generaciones)) juntas.set(p.handle, p);
+    }
+    return [...juntas.values()];
+  }
+  const dentro = new Map<string, Persona>([[persona.handle, persona]]);
+  let actuales = [persona];
+  for (let g = 1; g < generaciones && actuales.length; g++) {
+    const siguientes: Persona[] = [];
+    for (const p of actuales) {
+      const nuevas = tipo === "ascendientes"
+        ? (() => {
+          const f = arbol.familiasPadres(p)[0];
+          return f ? [arbol.padre(f), arbol.madre(f)] : [];
+        })()
+        : arbol.familiasPorBoda(p).flatMap((f) => arbol.hijos(f).map((h) => h.persona));
+      for (const n of nuevas) {
+        if (n && !dentro.has(n.handle)) {
+          dentro.set(n.handle, n);
+          siguientes.push(n);
+        }
+      }
+    }
+    actuales = siguientes;
+  }
+  if (tipo === "descendientes") {
+    for (const p of [...dentro.values()]) {
+      for (const f of arbol.familiasPorBoda(p)) {
+        const c = arbol.conyuge(f, p);
+        if (c && !dentro.has(c.handle)) dentro.set(c.handle, c);
+      }
+    }
+  }
+  return [...dentro.values()];
 }

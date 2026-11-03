@@ -1,7 +1,10 @@
 /* Mapa de lugares (docs/mapa.md): Leaflet con los colores del tema, en
    claro y en oscuro, y nada por debajo de 14 px. Se carga con la página. */
 
+/* z-index 0: las capas de Leaflet (z-index de 200 a 1000) quedan dentro del
+   mapa y no tapan las ventanas de la web (formularios, selector de rama). */
 .mapa-lugares.leaflet-container {
+  z-index: 0;
   font-family: inherit;
   font-size: 14px;
   background: var(--tema-superficie-hundida);
@@ -74,6 +77,39 @@
 .marcador-mapa:focus-visible .simbolo {
   outline: 3px solid var(--tema-teja);
   outline-offset: 1px;
+}
+
+/* Grupos de marcadores cercanos: un círculo con el número de lugares. */
+.grupo-mapa {
+  background: none;
+  border: none;
+}
+.grupo-mapa .circulo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--tema-azul);
+  color: var(--tema-sobre-azul);
+  border: 3px solid var(--tema-azul-claro);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 40%);
+  box-sizing: border-box;
+  font-size: 14px;
+  font-weight: 600;
+}
+.grupo-mapa:focus-visible {
+  outline: none;
+}
+.grupo-mapa:focus-visible .circulo {
+  outline: 3px solid var(--tema-teja);
+  outline-offset: 1px;
+}
+
+/* El recorrido de una persona: una línea en el color de acento. */
+.recorrido-mapa {
+  stroke: var(--tema-teja);
 }
 
 /* Arriba a la derecha: abajo taparía la atribución de OpenStreetMap, que

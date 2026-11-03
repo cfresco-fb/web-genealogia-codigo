@@ -451,13 +451,22 @@
    "texto": 25
   },
   {
+   "nombre": "kdbush",
+   "version": "4.1.0",
+   "licencia": "ISC",
+   "enlace": "https://github.com/mourner/kdbush",
+   "directa": false,
+   "carpeta": "node_modules/kdbush",
+   "texto": 26
+  },
+  {
    "nombre": "leaflet",
    "version": "1.9.4",
    "licencia": "BSD-2-Clause",
    "enlace": "https://leafletjs.com/",
    "directa": true,
    "carpeta": "node_modules/leaflet",
-   "texto": 26
+   "texto": 27
   },
   {
    "nombre": "pako",
@@ -466,7 +475,7 @@
    "enlace": "https://github.com/nodeca/pako",
    "directa": false,
    "carpeta": "node_modules/pako",
-   "texto": 27
+   "texto": 28
   },
   {
    "nombre": "performance-now",
@@ -475,7 +484,7 @@
    "enlace": "https://github.com/braveg1rl/performance-now",
    "directa": false,
    "carpeta": "node_modules/performance-now",
-   "texto": 28
+   "texto": 29
   },
   {
    "nombre": "raf",
@@ -484,7 +493,7 @@
    "enlace": "https://github.com/chrisdickinson/raf",
    "directa": false,
    "carpeta": "node_modules/raf",
-   "texto": 29
+   "texto": 30
   },
   {
    "nombre": "react",
@@ -493,7 +502,7 @@
    "enlace": "https://reactjs.org/",
    "directa": true,
    "carpeta": "node_modules/react",
-   "texto": 30
+   "texto": 31
   },
   {
    "nombre": "react-dom",
@@ -502,7 +511,7 @@
    "enlace": "https://reactjs.org/",
    "directa": true,
    "carpeta": "node_modules/react-dom",
-   "texto": 30
+   "texto": 31
   },
   {
    "nombre": "react-number-format",
@@ -511,7 +520,7 @@
    "enlace": "https://s-yadav.github.io/react-number-format/docs/intro",
    "directa": false,
    "carpeta": "node_modules/react-number-format",
-   "texto": 31
+   "texto": 32
   },
   {
    "nombre": "react-remove-scroll",
@@ -520,7 +529,7 @@
    "enlace": "https://github.com/theKashey/react-remove-scroll",
    "directa": false,
    "carpeta": "node_modules/react-remove-scroll",
-   "texto": 32
+   "texto": 33
   },
   {
    "nombre": "react-remove-scroll-bar",
@@ -529,7 +538,7 @@
    "enlace": "https://github.com/theKashey/react-remove-scroll-bar",
    "directa": false,
    "carpeta": "node_modules/react-remove-scroll-bar",
-   "texto": 33
+   "texto": 34
   },
   {
    "nombre": "react-router",
@@ -538,7 +547,7 @@
    "enlace": "https://github.com/remix-run/react-router",
    "directa": true,
    "carpeta": "node_modules/react-router",
-   "texto": 34
+   "texto": 35
   },
   {
    "nombre": "react-style-singleton",
@@ -547,7 +556,7 @@
    "enlace": "https://github.com/theKashey/react-style-singleton",
    "directa": false,
    "carpeta": "node_modules/react-style-singleton",
-   "texto": 32
+   "texto": 33
   },
   {
    "nombre": "react-textarea-autosize",
@@ -556,7 +565,7 @@
    "enlace": "https://github.com/Andarist/react-textarea-autosize",
    "directa": false,
    "carpeta": "node_modules/react-textarea-autosize",
-   "texto": 35
+   "texto": 36
   },
   {
    "nombre": "rgbcolor",
@@ -565,7 +574,7 @@
    "enlace": "https://github.com/yetzt/node-rgbcolor",
    "directa": false,
    "carpeta": "node_modules/rgbcolor",
-   "texto": 36
+   "texto": 37
   },
   {
    "nombre": "rolldown",
@@ -574,7 +583,7 @@
    "enlace": "https://rolldown.rs/",
    "directa": false,
    "carpeta": "node_modules/rolldown",
-   "texto": 37
+   "texto": 38
   },
   {
    "nombre": "scheduler",
@@ -583,7 +592,7 @@
    "enlace": "https://reactjs.org/",
    "directa": false,
    "carpeta": "node_modules/scheduler",
-   "texto": 30
+   "texto": 31
   },
   {
    "nombre": "specificity",
@@ -592,7 +601,7 @@
    "enlace": "https://github.com/keeganstreet/specificity",
    "directa": false,
    "carpeta": "node_modules/specificity",
-   "texto": 38
+   "texto": 39
   },
   {
    "nombre": "stackblur-canvas",
@@ -601,7 +610,16 @@
    "enlace": "http://www.quasimondo.com/StackBlurForCanvas/StackBlurDemo.html",
    "directa": false,
    "carpeta": "node_modules/stackblur-canvas",
-   "texto": 39
+   "texto": 40
+  },
+  {
+   "nombre": "supercluster",
+   "version": "9.1.0",
+   "licencia": "ISC",
+   "enlace": "https://github.com/mapbox/supercluster",
+   "directa": true,
+   "carpeta": "node_modules/supercluster",
+   "texto": 41
   },
   {
    "nombre": "svg-pathdata",
@@ -610,7 +628,7 @@
    "enlace": "https://github.com/nfroidure/svg-pathdata",
    "directa": false,
    "carpeta": "node_modules/svg-pathdata",
-   "texto": 40
+   "texto": 42
   },
   {
    "nombre": "svg2pdf.js",
@@ -619,7 +637,7 @@
    "enlace": "https://github.com/yWorks/svg2pdf.js",
    "directa": true,
    "carpeta": "node_modules/svg2pdf.js",
-   "texto": 41
+   "texto": 43
   },
   {
    "nombre": "svgpath",
@@ -628,7 +646,7 @@
    "enlace": "https://github.com/fontello/svgpath",
    "directa": false,
    "carpeta": "node_modules/svgpath",
-   "texto": 42
+   "texto": 44
   },
   {
    "nombre": "tslib",
@@ -637,7 +655,7 @@
    "enlace": "https://www.typescriptlang.org/",
    "directa": false,
    "carpeta": "node_modules/tslib",
-   "texto": 43
+   "texto": 45
   },
   {
    "nombre": "use-callback-ref",
@@ -646,7 +664,7 @@
    "enlace": "https://github.com/theKashey/use-callback-ref/",
    "directa": false,
    "carpeta": "node_modules/use-callback-ref",
-   "texto": 32
+   "texto": 33
   },
   {
    "nombre": "use-composed-ref",
@@ -655,7 +673,7 @@
    "enlace": "https://github.com/Andarist/use-composed-ref",
    "directa": false,
    "carpeta": "node_modules/use-composed-ref",
-   "texto": 44
+   "texto": 46
   },
   {
    "nombre": "use-isomorphic-layout-effect",
@@ -664,7 +682,7 @@
    "enlace": "https://github.com/Andarist/use-isomorphic-layout-effect",
    "directa": false,
    "carpeta": "node_modules/use-isomorphic-layout-effect",
-   "texto": 45
+   "texto": 47
   },
   {
    "nombre": "use-latest",
@@ -673,7 +691,7 @@
    "enlace": "https://github.com/Andarist/use-latest",
    "directa": false,
    "carpeta": "node_modules/use-latest",
-   "texto": 46
+   "texto": 48
   },
   {
    "nombre": "use-sidecar",
@@ -682,7 +700,7 @@
    "enlace": "https://github.com/theKashey/use-sidecar",
    "directa": false,
    "carpeta": "node_modules/use-sidecar",
-   "texto": 32
+   "texto": 33
   },
   {
    "nombre": "vite",
@@ -691,7 +709,7 @@
    "enlace": "https://vite.dev",
    "directa": false,
    "carpeta": "node_modules/vite",
-   "texto": 47
+   "texto": 49
   }
  ],
  "textos": [
@@ -800,6 +818,10 @@
    "estandar": false
   },
   {
+   "texto": "ISC License\n\nCopyright (c) 2026, Vladimir Agafonkin\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.",
+   "estandar": false
+  },
+  {
    "texto": "BSD 2-Clause License\n\nCopyright (c) 2010-2023, Volodymyr Agafonkin\nCopyright (c) 2010-2011, CloudMade\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice,\n   this list of conditions and the following disclaimer in the documentation\n   and/or other materials provided with the distribution.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.",
    "estandar": false
   },
@@ -853,6 +875,10 @@
   },
   {
    "texto": "Copyright (c) 2010 Mario Klingemann\n\nPermission is hereby granted, free of charge, to any person\nobtaining a copy of this software and associated documentation\nfiles (the \"Software\"), to deal in the Software without\nrestriction, including without limitation the rights to use,\ncopy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the\nSoftware is furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice shall be\nincluded in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES\nOF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND\nNONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT\nHOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,\nWHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR\nOTHER DEALINGS IN THE SOFTWARE.",
+   "estandar": false
+  },
+  {
+   "texto": "ISC License\n\nCopyright (c) 2024, Mapbox\n\nPermission to use, copy, modify, and/or distribute this software for any purpose\nwith or without fee is hereby granted, provided that the above copyright notice\nand this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND\nFITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS\nOF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\nTORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF\nTHIS SOFTWARE.",
    "estandar": false
   },
   {

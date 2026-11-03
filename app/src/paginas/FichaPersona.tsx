@@ -5,7 +5,7 @@ import { usePreferencias } from "../acceso/preferencias";
 import { useSesion } from "../acceso/sesion";
 import { useArbol } from "../arbol/contexto";
 import type { Familia, Multimedia, Persona } from "../arbol/tipos";
-import { EnlaceFamilia, EnlacePersona, rutaEditarFamilia, rutaEditarPersona, rutaFamilia, rutaNuevaFamilia } from "../componentes/Enlaces";
+import { EnlaceFamilia, EnlacePersona, rutaEditarFamilia, rutaEditarPersona, rutaFamilia, rutaMapaPersona, rutaNuevaFamilia } from "../componentes/Enlaces";
 import { DatosEnColumnas, DatosPareja, Galeria, hayEventos, NoExiste, Seccion, TablaEventos, Tarjeta } from "../componentes/Ficha";
 import { AvisoSolicitudes, DatoPendiente, usePendientes } from "../componentes/AvisoSolicitudes";
 import { BorrarFicha } from "../componentes/BorrarFicha";
@@ -176,6 +176,8 @@ export function FichaPersona() {
             </Button>
             {puede("Person", p.handle).ok && <Anadir persona={p} />}
             <VerArbol persona={p} />
+            {/* Sus lugares y su recorrido (añadidos del mapa, 02/11/2026). */}
+            <Button variant="default" component={Link} to={rutaMapaPersona(p.handle)}>{t("ficha.verEnMapa")}</Button>
             <UsarComoInicio key={p.handle} persona={p} />
             <BorrarFicha tipo="Person" handle={p.handle} alBorrar={() => navegar("/")} />
           </Group>

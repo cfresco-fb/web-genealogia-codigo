@@ -26,7 +26,7 @@ export function NotaPrivacidad() {
         {t("privacidad.quien.texto")} {t("privacidad.recaptcha")} (
         <Anchor href={`https://policies.google.com/privacy?hl=${idioma().codigo}`} target="_blank" rel="noopener noreferrer">
           {t("privacidad.politicaGoogle")}
-        </Anchor>). {t("privacidad.mapa")} (
+        </Anchor>). {t("privacidad.mapa")} {t("privacidad.nominatim")} (
         <Anchor href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">
           {t("privacidad.politicaOsm")}
         </Anchor>).

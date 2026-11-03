@@ -10,7 +10,7 @@ import { useSesion } from "../acceso/sesion";
 import { useArbol } from "../arbol/contexto";
 import { textoFecha } from "../arbol/fechas";
 import type { Base, Evento, Familia, Lugar, Multimedia, Nota, Persona } from "../arbol/tipos";
-import { EnlaceFamilia, EnlacePersona, rutaFamilia, rutaPersona } from "../componentes/Enlaces";
+import { EnlaceFamilia, EnlaceLugar, EnlacePersona, rutaFamilia, rutaPersona } from "../componentes/Enlaces";
 import { Foto, VisorFoto } from "../componentes/Foto";
 import { nombreTipo, t, type Clave } from "../i18n";
 
@@ -106,7 +106,7 @@ function Resultado({ tipo, objeto, admin, alAbrirFoto }: { tipo: TipoObjeto; obj
     }
     case "Place": {
       const l = objeto as Lugar;
-      return <Text size="sm">{arbol.tituloLugar(l.handle)} <Text span c="dimmed">({nombreTipo(l.place_type)})</Text>{id}</Text>;
+      return <Text size="sm"><EnlaceLugar handle={l.handle} /> <Text span c="dimmed">({nombreTipo(l.place_type)})</Text>{id}</Text>;
     }
     case "Media": {
       const m = objeto as Multimedia;

@@ -19,6 +19,7 @@ import { DetalleSolicitud, Solicitudes } from "./paginas/Solicitudes";
 import { DetalleCambio } from "./paginas/Cambios";
 import { Administracion } from "./paginas/Administracion";
 import { Privacidad } from "./paginas/Privacidad";
+import { FichaLugar } from "./paginas/FichaLugar";
 
 // Menú lateral en dos grupos (decisión del 24/10/2026, «Diseño visual»):
 // arriba Inicio, Árbol y Buscar (y Solicitudes, paso 12, y Administración,
@@ -176,6 +177,7 @@ export function App() {
             <Route path="/familia/:handle" element={<FichaFamilia />} />
             <Route path="/familia/nueva" element={<NuevaFamilia />} />
             <Route path="/familia/:handle/editar" element={<EditarFamilia />} />
+            <Route path="/lugar/:handle" element={<FichaLugar />} />
             <Route path="/arbol" element={<Grafico />} />
             <Route path="/arbol/:handle" element={<Grafico />} />
             <Route path="/ajustes" element={<Ajustes />} />
