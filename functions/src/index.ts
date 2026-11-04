@@ -20,6 +20,9 @@
  * - copiaNocturnaDrive: cada noche, después, las fotos nuevas o cambiadas
  *   y el árbol entero en el Google Drive de Carlos (copiaDrive.ts;
  *   docs/puesta-en-marcha.md, apartado 8 bis).
+ * - aniversariosPorCorreo: cada día a las 07:00 de Madrid, los aniversarios
+ *   de la semana o del mes siguiente a quien los pidió en Ajustes
+ *   (aniversarios.ts; docs/calendario.md).
  * - antesDeCrearCuenta: función de bloqueo de Authentication (exige Identity
  *   Platform): solo se crean cuentas de correos con invitación activa
  *   (Carlos, 01/11/2026; docs/acceso.md, «Altas solo con invitación»).
@@ -36,6 +39,8 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { REGION_FUNCIONES, REGION_PROGRAMADAS } from "../../comun/regiones.ts";
 import { invitacionActiva, SIN_INVITACION } from "../../comun/altas.ts";
 import { createTransport } from "nodemailer";
+import { enviarAniversarios } from "./aniversarios.ts";
+import { hoyEn } from "../../comun/aniversarios.ts";
 import { avisarSolicitud, type Enviar } from "./avisos.ts";
 import { copiarADrive, driveReal } from "./copiaDrive.ts";
 import { limpiarFotosBorradas, limpiarSubidas } from "./fotos.ts";
@@ -224,5 +229,22 @@ export const copiaNocturnaDrive = onSchedule(
     if (r.omitida) logger.warn("Copia en Drive: había otra en marcha; esta no se hace");
     else if (r.ok) logger.info("Copia en Drive hecha", r);
     else logger.error("La copia en Drive ha fallado", r);
+  },
+);
+
+// Aniversarios por correo (docs/calendario.md): una sola función diaria que
+// mira qué toca hoy (el domingo, la semana siguiente; el último día del mes,
+// el mes siguiente). Sin reintentos: un reintento podría mandar dos veces el
+// mismo correo a quien ya lo recibió.
+export const aniversariosPorCorreo = onSchedule(
+  {
+    schedule: "every day 07:00", timeZone: "Europe/Madrid", region: REGION_PROGRAMADAS, timeoutSeconds: 300, memory: "512MiB",
+    secrets: enEmulador ? [] : [GMAIL_USUARIO, GMAIL_CONTRASENA],
+  },
+  async () => {
+    const r = await enviarAniversarios(getFirestore(), getStorage().bucket(), hoyEn("Europe/Madrid"), enviarCorreo);
+    if (!r.periodos.length) return;
+    if (r.fallos.length) logger.error("Aniversarios por correo: algunos no se han podido enviar", r);
+    else logger.info("Aniversarios por correo", r);
   },
 );

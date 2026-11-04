@@ -347,6 +347,14 @@ for (const u of USUARIOS) {
         ["generaciones con decimales", con({ generaciones: 4.5 })],
         ["generaciones como texto", con({ generaciones: "4" })],
         ["generaciones «todas» en otra forma", con({ generaciones: "Todas" })],
+        ["aniversarios «ninguno» (no se guarda)", con({ aniversarios: "ninguno" })],
+        ["aniversarios diarios", con({ aniversarios: "diario" })],
+        ["aniversarios que no son texto", con({ aniversarios: true })],
+        ["tipos de aniversarios vacíos", con({ aniversariosTipos: [] })],
+        ["tipos de aniversarios repetidos", con({ aniversariosTipos: ["boda", "boda"] })],
+        ["tipo de aniversario desconocido", con({ aniversariosTipos: ["bautizo"] })],
+        ["tipos de aniversarios que no son una lista", con({ aniversariosTipos: "boda" })],
+        ["cinco tipos de aniversarios", con({ aniversariosTipos: ["cumpleanos", "nacimiento", "defuncion", "boda", "cumpleanos"] })],
         ["sin la fecha del servidor", { personaInicio: "p1", actualizada: new Date(2000, 0, 1) }],
       ];
 
@@ -369,6 +377,16 @@ for (const u of USUARIOS) {
         await segun(u.invitado, setDoc(doc(db, propia), con({ generaciones: 2 })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ generaciones: 250 })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ generaciones: "todas", personaInicio: "p1" })));
+      });
+
+      // Aniversarios por correo (calendario, 03/11/2026): semanal o mensual;
+      // sin el campo, ninguno.
+      it(u.invitado ? "guarda los aniversarios por correo" : "no guarda los aniversarios por correo", async () => {
+        const db = u.ctx().firestore();
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversarios: "semanal" })));
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversarios: "mensual", region: "es-ES" })));
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversarios: "semanal", aniversariosTipos: ["cumpleanos", "boda"] })));
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversariosTipos: ["cumpleanos", "nacimiento", "defuncion", "boda"] })));
       });
 
       it("no guarda valores no válidos", async () => {

@@ -20,11 +20,13 @@ import { DetalleCambio } from "./paginas/Cambios";
 import { Administracion } from "./paginas/Administracion";
 import { Privacidad } from "./paginas/Privacidad";
 import { FichaLugar } from "./paginas/FichaLugar";
+import { Calendario } from "./paginas/Calendario";
 
 // Menú lateral en dos grupos (decisión del 24/10/2026, «Diseño visual»):
 // arriba Inicio, Árbol y Buscar (y Solicitudes, paso 12, y Administración,
 // paso 14, para el administrador y los revisores); debajo, con el rótulo
-// «Listas», las cinco listas y el mapa (detrás de «Lugares», 02/11/2026).
+// «Listas», las cinco listas, el calendario (entre Familias y Eventos,
+// 03/11/2026) y el mapa (detrás de «Lugares», 02/11/2026).
 const MENU: [string, Clave][] = [
   ["/", "menu.inicio"],
   ["/arbol", "menu.arbol"],
@@ -34,6 +36,7 @@ const MENU: [string, Clave][] = [
 const MENU_LISTAS: [string, Clave][] = [
   ["/personas", "menu.personas"],
   ["/familias", "menu.familias"],
+  ["/calendario", "menu.calendario"],
   ["/eventos", "menu.eventos"],
   ["/lugares", "menu.lugares"],
   ["/mapa", "menu.mapa"],
@@ -47,8 +50,8 @@ const Creditos = lazy(() => import("./paginas/Creditos").then((m) => ({ default:
 const Mapa = lazy(() => import("./paginas/Mapa").then((m) => ({ default: m.Mapa })));
 
 // Las listas ocupan el alto de la ventana; el mapa, no (debajo puede llevar
-// la lista de lugares sin coordenadas).
-const LISTAS = MENU_LISTAS.map(([ruta]) => ruta).filter((ruta) => ruta !== "/mapa");
+// la lista de lugares sin coordenadas), ni el calendario.
+const LISTAS = MENU_LISTAS.map(([ruta]) => ruta).filter((ruta) => ruta !== "/mapa" && ruta !== "/calendario");
 const ALTO_CABECERA = 60;
 
 function Opcion({ ruta, clave, pathname }: { ruta: string; clave: Clave; pathname: string }) {
@@ -160,13 +163,15 @@ export function App() {
       </AppShell.Navbar>
 
       <AppShell.Main
-        style={esLista ? { height: "100dvh", display: "flex", flexDirection: "column" } : undefined}
+        // Menos la barra de los emuladores, si la hay (tema.css).
+        style={esLista ? { height: "calc(100dvh - var(--alto-aviso-emulador, 0px))", minHeight: 0, display: "flex", flexDirection: "column" } : undefined}
       >
         <div style={esLista ? { flex: 1, minHeight: 0 } : undefined}>
           <Routes>
             <Route path="/" element={<Inicio />} />
             <Route path="/personas" element={<ListaPersonas />} />
             <Route path="/familias" element={<ListaFamilias />} />
+            <Route path="/calendario" element={<Calendario />} />
             <Route path="/eventos" element={<ListaEventos />} />
             <Route path="/lugares" element={<ListaLugares />} />
             <Route path="/mapa" element={<Suspense fallback={<Center p="xl"><Loader /></Center>}><Mapa /></Suspense>} />

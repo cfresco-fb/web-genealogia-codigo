@@ -5,7 +5,8 @@
  * integridad, esquema, ID, registro, datosWeb, índice, límites,
  * concurrencia, fotos subidas), la instantánea por partes frente a la completa, la
  * función «arbol» y su disparador de punta a punta, la migración de los
- * usuarios de Supabase y las altas solo con invitación.
+ * usuarios de Supabase, las altas solo con invitación y los aniversarios por
+ * correo.
  *
  * Uso: npm run pruebas-servidor
  */
@@ -15,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { initializeApp as appCliente } from "firebase/app";
 import {
   connectAuthEmulator, createUserWithEmailAndPassword, getAuth, GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword,
@@ -49,6 +50,7 @@ import { revertir } from "../src/reversion.ts";
 import { aceptarCambio } from "../src/revision.ts";
 import { guardarInvitacion } from "../src/usuarios.ts";
 import { avisarSolicitud, type Mensaje } from "../src/avisos.ts";
+import { enviarAniversarios } from "../src/aniversarios.ts";
 import { peticionBorrado } from "../../comun/borrado.ts";
 import { leerIndice, RUTA_CONTADORES, RUTA_INDICE } from "../src/sistema.ts";
 import {
@@ -1935,6 +1937,105 @@ describe("altas solo con invitación (Carlos, 01/11/2026): la función de bloque
     assert.deepEqual(nuestras.find((c) => c.correo === C.importado)!.proveedores.sort(), ["Google", "contraseña"]);
     assert.ok(!cuentas.some((c) => c.correo === C.google), "la de invitación activa no sale");
     assert.equal((await auth.listUsers()).users.length, antes);
+  });
+});
+
+describe("aniversarios por correo (calendario, 03/11/2026), con el envío simulado", () => {
+  const correos: Mensaje[] = [];
+  const enviar = async (m: Mensaje) => { correos.push(m); };
+  const fecha = (y: number, m: number, d: number) => ({ _class: "Date", modifier: 0, quality: 0, calendar: 0, dateval: [d, m, y, false], text: "", newyear: 0, sortval: 1 });
+  const nombre = (pila: string, apellido: string) => ({ first_name: pila, surname_list: [{ surname: apellido, prefix: "", connector: "" }] });
+  const persona = (h: string, pila: string, nac: string | null, def: string | null = null) => {
+    const refs = [nac, def].filter(Boolean).map((e) => ({ ref: e, role: { value: 1 } }));
+    return {
+      handle: h, gramps_id: h, primary_name: nombre(pila, "Prueba"), event_ref_list: refs,
+      birth_ref_index: nac ? 0 : -1, death_ref_index: def ? refs.length - 1 : -1, parent_family_list: [], family_list: [],
+    };
+  };
+  const evento = (h: string, tipo: number, f: object) => ({ handle: h, type: { value: tipo, string: "" }, date: f });
+
+  before(async () => {
+    // Una instantánea pequeña, solo con lo que lee el cálculo: una persona
+    // viva que cumple años el lunes 9 de noviembre de 2026 y una boda de
+    // dos vivos el 5 de diciembre.
+    const objetos = {
+      Person: [persona("ANA", "Ana", "e1"), persona("NOVIO", "Novio", "e2")],
+      Family: [{ handle: "F1", gramps_id: "F1", father_handle: "NOVIO", mother_handle: "ANA", child_ref_list: [], type: { value: 0, string: "" }, event_ref_list: [{ ref: "e3" }] }],
+      Event: [evento("e1", 12, fecha(1956, 11, 9)), evento("e2", 12, fecha(1950, 3, 20)), evento("e3", 1, fecha(1980, 12, 5))],
+    };
+    await cubo.file(RUTA_INSTANTANEA).save(gzipSync(JSON.stringify({ objetos })), { contentType: "application/gzip" });
+    for (const d of (await db.collection("preferencias").get()).docs) await d.ref.delete();
+    const lote = db.batch();
+    const suscrito = (correo: string, aniversarios: string, estado: string, region?: string) => {
+      lote.set(db.doc(`invitaciones/${correo}`), { correo, persona: null, rol: "familiar", estado });
+      lote.set(db.doc(`preferencias/${correo}`), { aniversarios, ...(region ? { region } : {}) });
+    };
+    suscrito("semanal@example.com", "semanal", "activa");
+    suscrito("mensual@example.com", "mensual", "activa", "en-US");
+    suscrito("revocado@example.com", "semanal", "revocada");
+    lote.set(db.doc("preferencias/sin-suscripcion@example.com"), { modoColor: "oscuro" });
+    await lote.commit();
+  });
+
+  it("el domingo, la semana siguiente a los semanales con invitación activa, con el enlace a cada ficha", async () => {
+    correos.length = 0;
+    const r = await enviarAniversarios(db, cubo, [2026, 11, 8], enviar);
+    assert.deepEqual([r.periodos, r.enviados, r.sinAniversarios, r.sinInvitacion, r.fallos], [["semanal"], 1, 0, 1, []]);
+    assert.deepEqual(correos.map((m) => [m.para, m.asunto]), [[["semanal@example.com"], "Aniversarios de la semana (9–15 de noviembre)"]]);
+    const texto = correos[0].texto;
+    assert.match(texto, /^9 de noviembre de 2026$/m);
+    assert.match(texto, /^- Cumpleaños: Ana Prueba, cumple 70 años$/m);
+    assert.match(texto, /^ {2}http:\/\/localhost:5173\/persona\/ANA$/m);
+    assert.match(texto, /Ajustes: http:\/\/localhost:5173\/ajustes$/);
+  });
+
+  it("el último día del mes, el mes siguiente a los mensuales, en su región", async () => {
+    correos.length = 0;
+    const r = await enviarAniversarios(db, cubo, [2026, 11, 30], enviar);
+    assert.deepEqual([r.periodos, r.enviados], [["mensual"], 1]);
+    assert.equal(correos[0].asunto, "Aniversarios de December");
+    assert.match(correos[0].texto, /^December 5, 2026$/m);
+    assert.match(correos[0].texto, /^- Boda: Novio Prueba y Ana Prueba, aniversario de boda: 46 años$/m);
+    assert.match(correos[0].texto, /familia\/F1$/m);
+  });
+
+  it("sin aniversarios en el periodo, no se envía nada; y los demás días, tampoco", async () => {
+    correos.length = 0;
+    // La semana del 16 al 22 de noviembre no tiene ninguno.
+    const r = await enviarAniversarios(db, cubo, [2026, 11, 15], enviar);
+    assert.deepEqual([r.periodos, r.enviados, r.sinAniversarios], [["semanal"], 0, 1]);
+    const otro = await enviarAniversarios(db, cubo, [2026, 11, 10], enviar);
+    assert.deepEqual([otro.periodos, otro.enviados], [[], 0]);
+    assert.equal(correos.length, 0);
+  });
+
+  it("solo los tipos que eligió cada uno (04/11/2026): sin ninguno de los suyos, nada", async () => {
+    await db.doc("invitaciones/bodas@example.com").set({ correo: "bodas@example.com", persona: null, rol: "familiar", estado: "activa" });
+    await db.doc("preferencias/bodas@example.com").set({ aniversarios: "semanal", aniversariosTipos: ["boda"] });
+    await db.doc("preferencias/mensual@example.com").update({ aniversariosTipos: ["boda", "defuncion"] });
+    correos.length = 0;
+    // La semana del 9 de noviembre solo tiene un cumpleaños.
+    const r = await enviarAniversarios(db, cubo, [2026, 11, 8], enviar);
+    assert.deepEqual([r.enviados, r.sinAniversarios], [1, 1]);
+    assert.deepEqual(correos.map((m) => m.para[0]), ["semanal@example.com"]);
+    // En diciembre, la boda: le llega al que eligió bodas.
+    correos.length = 0;
+    const m = await enviarAniversarios(db, cubo, [2026, 11, 30], enviar);
+    assert.deepEqual([m.enviados, m.sinAniversarios], [1, 0]);
+    assert.match(correos[0].texto, /Boda: Novio Prueba y Ana Prueba/);
+    await db.doc("preferencias/bodas@example.com").delete();
+  });
+
+  it("un fallo al enviar a uno no corta a los demás", async () => {
+    await db.doc("invitaciones/otro-semanal@example.com").set({ correo: "otro-semanal@example.com", persona: null, rol: "familiar", estado: "activa" });
+    await db.doc("preferencias/otro-semanal@example.com").set({ aniversarios: "semanal" });
+    correos.length = 0;
+    const r = await enviarAniversarios(db, cubo, [2026, 11, 8], async (m) => {
+      if (m.para[0] === "semanal@example.com") throw new Error("Gmail no responde");
+      correos.push(m);
+    });
+    assert.deepEqual([r.enviados, r.fallos], [1, [{ correo: "semanal@example.com", error: "Gmail no responde" }]]);
+    assert.deepEqual(correos.map((m) => m.para[0]), ["otro-semanal@example.com"]);
   });
 });
 

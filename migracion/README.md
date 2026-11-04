@@ -9,7 +9,8 @@ Se ejecutan en tu PC; los datos no salen de él.
 | `importar_json.py` | JSON de la web → `.gramps` (para reimportar en Gramps); `--idioma` de los tipos propios guardados como código (castellano por defecto) |
 | `comprobar_ida_vuelta.py` | Prueba automática de fidelidad de todo el circuito |
 | `comparar_json.py` | Compara objeto a objeto dos JSON (lo usa `npm run circuito`) |
-| `vivos_gramps.py` | Quién está «probablemente vivo» según Gramps en el árbol de ejemplo, para comprobar la traducción de la web (`app/src/arbol/vivos.test.ts`) |
+| `vivos_gramps.py` | Quién está «probablemente vivo» según Gramps en el árbol de ejemplo, para comprobar la traducción (`comun/vivos.ts`, prueba en `app/src/arbol/vivos.test.ts`) |
+| `calendarios_gramps.py` | Conversiones de calendario de Gramps (`gcalendar.py`), para comprobar su traducción (`comun/calendarios.ts`, prueba en `comun/calendarios.test.ts`) |
 | `rama_gramps.py` | Rama editable y referencias de una muestra de objetos según la biblioteca de Gramps, en el árbol de ejemplo, para comprobar `comun/rama.ts` y `comun/referencias.ts` (`comun/contraste.test.ts`) |
 | `fechas_gramps.py` | Las fechas del árbol de ejemplo (y unas hechas a mano con Gramps) con su texto en Gramps, para comprobar el lector de fechas de los formularios (`app/src/arbol/leerFecha.test.ts`) |
 | `plantillas_gramps.py` | Plantillas vacías y esquemas de los objetos de Gramps para la edición (`comun/gramps/plantillas.json`), con su prueba de exportar e importar en Gramps |

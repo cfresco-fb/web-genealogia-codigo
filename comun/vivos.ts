@@ -14,16 +14,70 @@
 //   si no puede estimar ninguna fecha, la considera viva.)
 // - Las fechas estimadas solo sirven para este cálculo; no se muestran.
 // La comparación persona a persona con la biblioteca de Gramps está en
-// vivos.test.ts. Explicación: docs/libro.md.
+// app/src/arbol/vivos.test.ts. Explicación: docs/libro.md.
+//
+// En comun/ desde el 03/11/2026 (decisión de Carlos, «Calendario de
+// aniversarios»): lo usan la web (fichas, cajas, PDF, libro, calendario) y
+// las funciones (correo de aniversarios). Sin gramps-date: los números de
+// sus tipos de fecha, como constantes, y las conversiones de
+// calendario de ./calendarios.ts.
 //
 // Original: Gramps, gramps/gen/utils/alive.py y gramps/gen/lib/date.py
 //   Copyright (C) 2000-2007 Donald N. Allingham, 2009 Gary Burton,
 //   2011 Tim G L Lyons, 2024 Cameron Davidson y otros.
 //   GNU General Public License, versión 2 o posterior.
 
-import { Calendar, Modifier, Quality, type GrampsDate } from "../gramps-connect/gramps-date";
-import { aSdn, deSdn } from "./calendarios";
-import type { Evento, Familia, Persona } from "./tipos";
+import { aSdn, Calendario, deSdn } from "./calendarios.ts";
+
+/** Date.MOD_* de Gramps (los números del `enum Modifier` de gramps-date). */
+export const Modificador = {
+  NINGUNO: 0,
+  ANTES: 1,
+  DESPUES: 2,
+  HACIA: 3,
+  ENTRE: 4,
+  DESDE_HASTA: 5,
+  TEXTO: 6,
+  DESDE: 7,
+  HASTA: 8,
+} as const;
+
+/** Date.QUAL_* de Gramps. */
+export const Calidad = { NINGUNA: 0, ESTIMADA: 1, CALCULADA: 2 } as const;
+
+/** Una fecha de Gramps tal como viene en el JSON (lo que el cálculo lee). */
+export interface FechaGramps {
+  modifier: number;
+  quality: number;
+  calendar: number;
+  dateval: (number | boolean)[];
+  newyear?: unknown;
+  sortval?: number;
+}
+
+/** Lo que el cálculo lee de una persona, una familia y un evento de Gramps
+ * (los tipos completos de la web, app/src/arbol/tipos.ts, los cumplen). */
+export interface PersonaVivos {
+  handle: string;
+  event_ref_list: { ref: string; role: { value: number | string } }[];
+  birth_ref_index: number;
+  death_ref_index: number;
+  parent_family_list: string[];
+  family_list: string[];
+}
+export interface FamiliaVivos {
+  father_handle: string | null;
+  mother_handle: string | null;
+  child_ref_list: { ref: string }[];
+  event_ref_list: { ref: string }[];
+}
+export interface EventoVivos {
+  type: { value: number | string };
+  date: FechaGramps;
+}
+type Persona = PersonaVivos;
+type Familia = FamiliaVivos;
+type Evento = EventoVivos;
 
 /** Los tres parámetros que puede cambiar el administrador. */
 export interface ParametrosVivos {
@@ -84,9 +138,9 @@ function cmp(a: Ymd, b: Ymd): number {
 /** Una fecha de Gramps con la parte de su comportamiento que usa el
  * cálculo (gramps/gen/lib/date.py, clase Date). */
 export class Fecha {
-  calendario: Calendar = Calendar.GREGORIAN;
-  modificador: Modifier = Modifier.NONE;
-  calidad: Quality = Quality.NONE;
+  calendario: number = Calendario.GREGORIANO;
+  modificador: number = Modificador.NINGUNO;
+  calidad: number = Calidad.NINGUNA;
   /** [día, mes, año, barra] y, si es compuesta, otros cuatro. */
   valor: number[] = [0, 0, 0, 0];
   orden = 0;
@@ -100,7 +154,7 @@ export class Fecha {
     return f;
   }
 
-  static de(g: GrampsDate): Fecha {
+  static de(g: FechaGramps): Fecha {
     const f = new Fecha();
     f.calendario = g.calendar;
     f.modificador = g.modifier;
@@ -123,21 +177,21 @@ export class Fecha {
   }
 
   esCompuesta(): boolean {
-    return this.modificador === Modifier.RANGE || this.modificador === Modifier.SPAN;
+    return this.modificador === Modificador.ENTRE || this.modificador === Modificador.DESDE_HASTA;
   }
 
   esValida(): boolean {
-    return this.modificador !== Modifier.TEXTONLY && this.orden !== 0;
+    return this.modificador !== Modificador.TEXTO && this.orden !== 0;
   }
 
   private bajo(i: number): number {
-    return this.modificador === Modifier.TEXTONLY ? 0 : this.valor[i];
+    return this.modificador === Modificador.TEXTO ? 0 : this.valor[i];
   }
 
   anio(): number { return this.bajo(2); }
   mes(): number { return this.bajo(1); }
   dia(): number { return this.bajo(0); }
-  anioValido(): boolean { return this.modificador !== Modifier.TEXTONLY && this.valor[2] !== 0; }
+  anioValido(): boolean { return this.modificador !== Modificador.TEXTO && this.valor[2] !== 0; }
 
   private alto(i: number): number {
     return this.esCompuesta() ? this.valor[i] : 0;
@@ -199,7 +253,7 @@ export class Fecha {
 
   /** offset: (año, mes, día) gregorianos de esta fecha más unos días. */
   private masDias(dias: number): Ymd {
-    return deSdn(Calendar.GREGORIAN, this.orden + dias);
+    return deSdn(Calendario.GREGORIANO, this.orden + dias);
   }
 
   /** set_yr_mon_day_offset: suma a la fecha (a las dos partes, si es compuesta). */
@@ -225,9 +279,9 @@ export class Fecha {
   copiaSumada(year = 0, month = 0, day = 0): Fecha {
     const original = this.calendario;
     const f = this.copia();
-    if (original !== Calendar.GREGORIAN) f.convertir(Calendar.GREGORIAN);
+    if (original !== Calendario.GREGORIANO) f.convertir(Calendario.GREGORIANO);
     f.sumar(year, month, day);
-    if (original === Calendar.GREGORIAN) return f;
+    if (original === Calendario.GREGORIANO) return f;
     f.convertir(original);
     return f;
   }
@@ -240,7 +294,7 @@ export class Fecha {
   }
 
   /** convert_calendar (known_valid = true). */
-  convertir(calendario: Calendar) {
+  convertir(calendario: number) {
     if (calendario === this.calendario && !this.anioNuevo) return;
     const [y, m, d] = deSdn(calendario, this.orden);
     if (this.esCompuesta()) {
@@ -259,7 +313,7 @@ export class Fecha {
    * en gregoriano, con el margen de «hacia», «antes de» y «después de». */
   inicioFin(): [Ymd, Ymd] {
     const c = this.copia();
-    c.convertir(Calendar.GREGORIAN);
+    c.convertir(Calendario.GREGORIANO);
     const inicio: Ymd = [c.valor[2], c.valor[1], c.valor[0]];
     let fin: Ymd = c.esCompuesta() ? [c.valor[6], c.valor[5], c.valor[4]] : [0, 0, 0];
     if (fin[0] === 0 && fin[1] === 0 && fin[2] === 0) fin = inicio;
@@ -268,13 +322,13 @@ export class Fecha {
     let finMax: Ymd = [fin[0] === 0 ? inicio[2] : fin[0], fin[1] === 0 ? 12 : fin[1], fin[2] === 0 ? 31 : fin[2]];
     let inicioMin: Ymd = [inicio[0], inicio[1] === 0 ? 1 : inicio[1], inicio[2] === 0 ? 1 : inicio[2]];
     const masDias = (ymd: Ymd, dias: number) => Fecha.ymd(ymd[0], ymd[1], ymd[2]).masDias(dias);
-    if (this.modificador === Modifier.BEFORE || this.modificador === Modifier.TO) {
-      if (this.modificador === Modifier.BEFORE) finMax = masDias(inicioMin, -1);
+    if (this.modificador === Modificador.ANTES || this.modificador === Modificador.HASTA) {
+      if (this.modificador === Modificador.ANTES) finMax = masDias(inicioMin, -1);
       inicioMin = [finMax[0] - MARGEN, finMax[1], finMax[2]];
-    } else if (this.modificador === Modifier.AFTER || this.modificador === Modifier.FROM) {
-      if (this.modificador === Modifier.AFTER) inicioMin = masDias(finMax, 1);
+    } else if (this.modificador === Modificador.DESPUES || this.modificador === Modificador.DESDE) {
+      if (this.modificador === Modificador.DESPUES) inicioMin = masDias(finMax, 1);
       finMax = [inicioMin[0] + MARGEN, inicioMin[1], inicioMin[2]];
-    } else if (this.modificador === Modifier.ABOUT || this.calidad === Quality.ESTIMATED) {
+    } else if (this.modificador === Modificador.HACIA || this.calidad === Calidad.ESTIMADA) {
       inicioMin = [inicioMin[0] - MARGEN, inicioMin[1], inicioMin[2]];
       finMax = [finMax[0] + MARGEN, finMax[1], finMax[2]];
     }
@@ -284,7 +338,7 @@ export class Fecha {
   /** match, con las comparaciones que usa el cálculo: «>=», «>» y «<»
    * (alguna parte de esta fecha antes o después que alguna de la otra). */
   coincide(otra: Fecha, comparacion: ">=" | ">" | "<"): boolean {
-    if (this.modificador === Modifier.TEXTONLY || otra.modificador === Modifier.TEXTONLY) return false;
+    if (this.modificador === Modificador.TEXTO || otra.modificador === Modificador.TEXTO) return false;
     if (this.orden === 0 || otra.orden === 0) return false;
     const [otraInicio, otraFin] = otra.inicioFin();
     const [inicio, fin] = this.inicioFin();
@@ -304,9 +358,9 @@ export function hoy(): Fecha {
 
 /** Lo que el cálculo necesita del árbol. */
 export interface DatosVivos {
-  personas: Map<string, Persona>;
-  familias: Map<string, Familia>;
-  eventos: Map<string, Evento>;
+  personas: ReadonlyMap<string, Persona>;
+  familias: ReadonlyMap<string, Familia>;
+  eventos: ReadonlyMap<string, Evento>;
 }
 
 interface Bd {
@@ -330,7 +384,15 @@ class ProbablementeVivo {
 
   /** `hoy`: Gramps usa la fecha de hoy (Today()) en un paso del cálculo,
    * aunque se pida para otra fecha. */
-  constructor(private readonly d: DatosVivos, private readonly p: ParametrosVivos, private readonly hoy: Fecha) {}
+  private readonly d: DatosVivos;
+  private readonly p: ParametrosVivos;
+  private readonly hoy: Fecha;
+
+  constructor(d: DatosVivos, p: ParametrosVivos, hoy: Fecha) {
+    this.d = d;
+    this.p = p;
+    this.hoy = hoy;
+  }
 
   private persona(h: string | null | undefined): Persona | null {
     return (h && this.d.personas.get(h)) || null;
@@ -372,7 +434,7 @@ class ProbablementeVivo {
           const f = Fecha.de(ev.date);
           r.fallecida = true;
           if (f.esValida()) {
-            if (f.modificador === Modifier.NONE) f.modificador = Modifier.BEFORE;
+            if (f.modificador === Modificador.NINGUNO) f.modificador = Modificador.ANTES;
             r.defuncion = f;
             break;
           }
@@ -496,15 +558,15 @@ class ProbablementeVivo {
     if (nacimiento === null || !nacimiento.esValida()) {
       nacimiento = new Fecha();
       if (minNac && maxNac) {
-        nacimiento.modificador = Modifier.RANGE;
+        nacimiento.modificador = Modificador.ENTRE;
         nacimiento.valor = [0, 0, minNac, 0, 0, 0, maxNac, 0];
         nacimiento.calcularOrden();
       } else if (minNac) {
         nacimiento.ponerYmd(minNac, 1, 1);
-        nacimiento.modificador = Modifier.AFTER;
+        nacimiento.modificador = Modificador.DESPUES;
       } else if (maxNac) {
         nacimiento.ponerYmd(maxNac, 12, 31);
-        nacimiento.modificador = Modifier.BEFORE;
+        nacimiento.modificador = Modificador.ANTES;
       }
       nacimiento.calcularOrden();
     }
@@ -519,7 +581,7 @@ class ProbablementeVivo {
             maxDef = h;
             maxDef.sumar(0, 0, -1);
           }
-          defuncion.modificador = Modifier.RANGE;
+          defuncion.modificador = Modificador.ENTRE;
           defuncion.ponerYmd2(maxDef.anio(), maxDef.mes(), maxDef.dia());
         } else {
           defuncion.sumar(P.edadMaxima);
@@ -551,7 +613,7 @@ class ProbablementeVivo {
             if (n.esCompuesta()) {
               n.sumar2(2 * P.aniosGeneracion);
             } else {
-              n.modificador = Modifier.RANGE;
+              n.modificador = Modificador.ENTRE;
               n.ponerYmd2(e.nacimiento.anio(), e.nacimiento.mes(), e.nacimiento.dia());
               n.sumar2(P.aniosGeneracion);
             }
@@ -653,7 +715,7 @@ class ProbablementeVivo {
     if (r.bmin !== null) {
       const media = (r.bmin + r.bmax!) / 2;
       const n = Fecha.ymd(Math.trunc(media - r.gen! * P.aniosGeneracion), 1, 1);
-      n.modificador = Modifier.ABOUT;
+      n.modificador = Modificador.HACIA;
       return { nacimiento: n, defuncion: n.copiaSumada(P.edadMaxima), explicacion: `nacimiento de descendientes: ${r.gen} generaciones` };
     }
     if (r.dmin !== null) {
@@ -661,7 +723,7 @@ class ProbablementeVivo {
       let inferior = r.dmax! - (r.gen! * P.aniosGeneracion + P.edadMaxima);
       if (inferior > superior) [superior, inferior] = [inferior, superior];
       const n = Fecha.ymd(inferior, 1, 1);
-      n.modificador = Modifier.RANGE;
+      n.modificador = Modificador.ENTRE;
       n.ponerYmd2(superior, 1, 1);
       return { nacimiento: n, defuncion: n.copiaSumada(P.edadMaxima), explicacion: `defunción de descendientes: ${r.gen} generaciones` };
     }
@@ -707,7 +769,7 @@ class ProbablementeVivo {
       }
       if (ultima !== null) {
         const n = ultima.copiaSumada(anios - P.edadMaxima);
-        n.modificador = Modifier.RANGE;
+        n.modificador = Modificador.ENTRE;
         n.ponerYmd2(anios + primera!.anio(), 1, 1);
         return { nacimiento: n, defuncion: n.copiaSumada(P.edadMaxima), explicacion: `defunción de ${quien} de un ascendiente`, gen: generacion };
       }

@@ -1,12 +1,12 @@
 // Sección de Ajustes del administrador para los parámetros de quién se
-// considera vivo (app/src/arbol/vivos.ts): valen para todo el árbol.
+// considera vivo (comun/vivos.ts): valen para todo el árbol.
 
 import { useState } from "react";
 import { Alert, Button, Group, NumberInput, Stack, Text } from "@mantine/core";
 import { usePreferencias } from "../acceso/preferencias";
 import {
   LIMITES_VIVOS, PARAMETROS_VIVOS_POR_DEFECTO, validarParametrosVivos, type ParametrosVivos,
-} from "../arbol/vivos";
+} from "../../../comun/vivos.ts";
 import { t, type Clave } from "../i18n";
 
 const CAMPOS: (keyof ParametrosVivos)[] = ["edadMaxima", "aniosGeneracion", "difHermanos"];

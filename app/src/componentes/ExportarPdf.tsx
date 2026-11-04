@@ -40,6 +40,7 @@ import {
 import type { Persona } from "../arbol/tipos";
 import { textoMomento } from "../arbol/fechas";
 import { formatoNumero, t, type Clave } from "../i18n";
+import { AvisoAjustes } from "./Enlaces";
 import { OpcionDisposicion } from "./OpcionDisposicion";
 import { exportarMosaico, exportarPaginas } from "./pdfArbol";
 
@@ -267,6 +268,7 @@ function Contenido({
 
   return (
     <Stack>
+      <AvisoAjustes texto={t("avisoAjustes.simbolos")} seccion="simbolos" />
       <TextInput label={t("pdf.tituloPdf")} value={titulo} onChange={(e) => setTitulo(e.currentTarget.value)} />
       <TextInput label={t("pdf.subtituloPdf")} value={subtitulo} onChange={(e) => setSubtitulo(e.currentTarget.value)} />
       <TextInput label={t("pdf.piePdf")} value={pie} onChange={(e) => setPieEscrito(e.currentTarget.value)} />

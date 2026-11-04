@@ -1,7 +1,8 @@
 // Nota de privacidad (decisión D7; texto aprobado por Carlos el 31/10/2026,
 // docs/puesta-en-marcha.md). Se ve sin sesión (pantalla de entrar) y con
 // ella (/privacidad, enlazada desde el menú de la cuenta). La frase del
-// mapa, aprobada por Carlos el 02/11/2026 (docs/privacidad.md).
+// mapa, aprobada por Carlos el 02/11/2026, y la de los aniversarios por
+// correo, el 03/11/2026 (docs/privacidad.md).
 
 import type { ReactNode } from "react";
 import { Anchor, Stack, Text } from "@mantine/core";
@@ -29,7 +30,7 @@ export function NotaPrivacidad() {
         </Anchor>). {t("privacidad.mapa")} {t("privacidad.nominatim")} (
         <Anchor href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener noreferrer">
           {t("privacidad.politicaOsm")}
-        </Anchor>).
+        </Anchor>). {t("privacidad.aniversarios")}
       </Parrafo>
       <Parrafo titulo="privacidad.donde.titulo">{t("privacidad.donde.texto")}</Parrafo>
       <Parrafo titulo="privacidad.cambiar.titulo">

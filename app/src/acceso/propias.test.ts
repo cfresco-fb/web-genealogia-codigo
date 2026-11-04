@@ -5,8 +5,8 @@ const existe = (h: string) => h === "p1";
 
 describe("preferencias propias que se escriben", () => {
   it("solo los campos elegidos", () => {
-    const { campos } = camposPreferencias({ ...SIN_PROPIAS, personaInicio: "p1", region: "es-419", generaciones: "todas" }, existe);
-    expect(campos).toEqual({ personaInicio: "p1", region: "es-419", generaciones: "todas" });
+    const { campos } = camposPreferencias({ ...SIN_PROPIAS, personaInicio: "p1", region: "es-419", generaciones: "todas", aniversarios: "semanal", aniversariosTipos: ["cumpleanos"] }, existe);
+    expect(campos).toEqual({ personaInicio: "p1", region: "es-419", generaciones: "todas", aniversarios: "semanal", aniversariosTipos: ["cumpleanos"] });
   });
 
   it("de los símbolos, solo lo que admiten las reglas", () => {

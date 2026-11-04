@@ -15,7 +15,7 @@ import {
   construirGrafico, DISPOSICIONES, generacionesEfectivas, generacionesQueHay, leerDisposicion, leerGeneraciones, leerTipo,
   opcionesGeneraciones, TIPOS_GRAFICO, type Disposicion, type Generaciones, type TipoGrafico,
 } from "../arbol/grafico";
-import { rutaPersona } from "../componentes/Enlaces";
+import { AvisoAjustes, rutaPersona } from "../componentes/Enlaces";
 import { ExportarLibro } from "../componentes/ExportarLibro";
 import { ExportarPdf } from "../componentes/ExportarPdf";
 import { IconoArbol, IconoAtras, IconoDescargar, IconoDesplegar, IconoInicio, IconoLibro } from "../componentes/Iconos";
@@ -271,6 +271,7 @@ export function Grafico() {
         </Group>
       </Paper>
       <Text size="xs" c="dimmed">{t("grafico.ayuda")}</Text>
+      <AvisoAjustes texto={t("avisoAjustes.arbol")} seccion="generaciones" size="xs" />
       <ExportarPdf
         abierto={pdfAbierto}
         alCerrar={() => setPdfAbierto(false)}

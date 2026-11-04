@@ -20,6 +20,25 @@ body {
   color: var(--tema-tinta);
 }
 
+/* Solo en desarrollo: la barra que pone Firebase abajo con los emuladores
+   («Running in emulator mode…») tapaba la última línea de las páginas que
+   ocupan toda la pantalla (árbol y listas; 04/11/2026). Alto fijo y su
+   hueco debajo del contenido; sin la barra, nada cambia. */
+.firebase-emulator-warning {
+  box-sizing: border-box;
+  height: 1.75rem;
+  line-height: 1.5rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body:has(.firebase-emulator-warning) {
+  --alto-aviso-emulador: 1.75rem;
+  padding-bottom: var(--alto-aviso-emulador);
+}
+
 /* Casillas: borde «linea-fuerte» sobre «superficie», en los dos modos. */
 [data-mantine-color-scheme] .mantine-Input-wrapper[data-variant="default"] {
   --input-bd: var(--tema-linea-fuerte);

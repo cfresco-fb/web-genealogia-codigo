@@ -1,16 +1,21 @@
 // Comparación persona a persona con la biblioteca de Gramps sobre el árbol
 // de ejemplo: datos-prueba/vivos-ejemplo.json.gz, generado por
-// migracion/vivos_gramps.py con varios juegos de parámetros y fechas.
+// migracion/vivos_gramps.py con varios juegos de parámetros y fechas. El
+// cálculo está en comun/vivos.ts (lo usan también las funciones); la
+// prueba sigue aquí porque compara además sus conversiones de calendario
+// (comun/calendarios.ts) con las de gramps-date, que solo carga la web.
 
 import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { Calendar } from "../gramps-connect/gramps-date";
-import { aSdn, deSdn } from "./calendarios";
+import {
+  Calendar, frenchSdn, frenchYmd, gregorianSdn, gregorianYmd, islamicSdn, islamicYmd, julianSdn, julianYmd, swedishSdn, swedishYmd,
+} from "../gramps-connect/gramps-date";
+import { aSdn, deSdn } from "../../../comun/calendarios.ts";
 import type { Evento, Familia, Persona } from "./tipos";
 import {
   constaFallecida, Fecha, personasVivas, probablementeVivaGramps, validarParametrosVivos, type DatosVivos,
-} from "./vivos";
+} from "../../../comun/vivos.ts";
 
 interface Caso {
   edadMaxima: number;
@@ -26,11 +31,11 @@ const fichero = JSON.parse(gunzipSync(readFileSync(new URL("./datos-prueba/vivos
   casos: Caso[];
 };
 
-const datos: DatosVivos = {
+const datos = {
   personas: new Map(fichero.objetos.Person.map((p) => [p.handle, p])),
   familias: new Map(fichero.objetos.Family.map((f) => [f.handle, f])),
   eventos: new Map(fichero.objetos.Event.map((e) => [e.handle, e])),
-};
+} satisfies DatosVivos;
 const hoyGramps = Fecha.ymd(...fichero.hoy);
 
 describe("pruebas de fallecimiento (regla añadida)", () => {
@@ -104,6 +109,26 @@ describe("fechas de Gramps", () => {
         expect(aSdn(cal, y, m, d), `calendario ${cal}, ${sdn}`).toBe(sdn);
       }
     }
+  });
+
+  it("las conversiones de comun/ y las de gramps-date coinciden, de ida y de vuelta", () => {
+    // Las dos traducen gcalendar.py de Gramps; si una cambia, salta aquí.
+    // Del año 1 al 2400, día a día de 3 en 3 (el francés, en su época).
+    type Ymd = [number, number, number];
+    const deGrampsDate: [Calendar, (sdn: number) => Ymd, (...ymd: Ymd) => number, number, number][] = [
+      [Calendar.GREGORIAN, gregorianYmd, gregorianSdn, 1721426, 2597641], [Calendar.JULIAN, julianYmd, julianSdn, 1721426, 2597641],
+      [Calendar.FRENCH, frenchYmd, frenchSdn, 2375840, 2380950], [Calendar.ISLAMIC, islamicYmd, islamicSdn, 1948440, 2597641],
+      [Calendar.SWEDISH, swedishYmd, swedishSdn, 2300000, 2400000],
+    ];
+    const distintas: string[] = [];
+    for (const [cal, aYmd, aSdnGd, desde, hasta] of deGrampsDate) {
+      for (let sdn = desde; sdn < hasta; sdn += 3) {
+        const ymd = deSdn(cal, sdn);
+        if (ymd.join() !== aYmd(sdn).join()) distintas.push(`calendario ${cal}, día ${sdn}: ${ymd} y ${aYmd(sdn)}`);
+        if (aSdn(cal, ...ymd) !== aSdnGd(...ymd)) distintas.push(`calendario ${cal}, ${ymd}: ${aSdn(cal, ...ymd)} y ${aSdnGd(...ymd)}`);
+      }
+    }
+    expect(distintas.slice(0, 10)).toEqual([]);
   });
 
   it("suma años y compara con los márgenes de «hacia» y «antes de»", () => {

@@ -17,6 +17,7 @@ import {
 import { construirLibro, personasDelLibro, type OpcionesLibro } from "../arbol/libro";
 import type { Persona } from "../arbol/tipos";
 import { comparador, t, type Clave } from "../i18n";
+import { AvisoAjustes } from "./Enlaces";
 import { OpcionDisposicion } from "./OpcionDisposicion";
 import type { Dibujo } from "./pdfArbol";
 import { PAPELES_LIBRO, type PapelLibro } from "../arbol/paginasPdf";
@@ -170,6 +171,7 @@ function Contenido({ alCerrar, alAvisar, arbol, persona: inicial, tipo, generaci
 
   return (
     <Stack gap="md">
+      <AvisoAjustes texto={t("avisoAjustes.simbolos")} seccion="simbolos" />
       <TextInput label={t("libro.dialogo.tituloPortada")} value={tituloFinal} onChange={(e) => setTitulo(e.currentTarget.value)} />
       <TextInput label={t("libro.dialogo.subtituloPortada")} value={subtitulo} onChange={(e) => setSubtitulo(e.currentTarget.value)} />
       <Select

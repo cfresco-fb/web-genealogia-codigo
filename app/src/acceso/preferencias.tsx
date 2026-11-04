@@ -3,14 +3,15 @@
 // - Las propias de cada usuario (preferencias/{correo}): sus símbolos de
 //   nacimiento y defunción (app/src/arbol/simbolos.ts), su persona de inicio,
 //   la región de las fechas (app/src/arbol/fechas.ts), el modo de color y
-//   las generaciones con que se abre el árbol. Cada una, si no la ha
+//   las generaciones con que se abre el árbol y los aniversarios por correo
+//   (ninguno, semanal o mensual, y qué tipos; docs/calendario.md). Cada una, si no la ha
 //   elegido, toma el valor por defecto: los símbolos del árbol
 //   (configuracion/presentacion), la persona vinculada a su invitación (o,
 //   si no tiene, la persona de inicio de Gramps de escritorio), la región
 //   del navegador, el modo del ordenador o el móvil («Automático») y 4
 //   generaciones.
 // - Las del árbol, que fija el administrador: los símbolos por defecto, los
-//   parámetros de quién se considera vivo (app/src/arbol/vivos.ts;
+//   parámetros de quién se considera vivo (comun/vivos.ts;
 //   configuracion/vivos) y el nombre del árbol (configuracion/arbol), que es
 //   el título de la web y de los PDF.
 //
@@ -27,7 +28,8 @@ import {
   PREFERENCIA_POR_DEFECTO, simbolosDe, validarPreferencia, type PreferenciaSimbolos, type Simbolos,
 } from "../arbol/simbolos";
 import type { Persona } from "../arbol/tipos";
-import { PARAMETROS_VIVOS_POR_DEFECTO, personasVivas, validarParametrosVivos, type ParametrosVivos } from "../arbol/vivos";
+import { PARAMETROS_VIVOS_POR_DEFECTO, personasVivas, validarParametrosVivos, type ParametrosVivos } from "../../../comun/vivos.ts";
+import { leerTiposCorreo, SUSCRIPCIONES, type Suscripcion, type TipoAniversario } from "../../../comun/aniversarios.ts";
 import { t } from "../i18n";
 import { camposPreferencias, camposSimbolos, SIN_PROPIAS, type Propias } from "./propias";
 import { useSesion } from "./sesion";
@@ -86,6 +88,13 @@ export interface Preferencias {
   generaciones: Generaciones;
   /** Guarda las generaciones; con null, vuelve a las de por defecto. */
   guardarGeneraciones: (g: Generaciones | null) => Promise<void>;
+  /** Aniversarios por correo: null si no quiere ninguno. */
+  aniversarios: Suscripcion | null;
+  guardarAniversarios: (s: Suscripcion | null) => Promise<void>;
+  /** Los tipos de ese correo: los elegidos o, si no, todos. */
+  aniversariosTipos: TipoAniversario[] | null;
+  /** Con null, todos. */
+  guardarAniversariosTipos: (tipos: TipoAniversario[] | null) => Promise<void>;
   /** Parámetros de quién se considera vivo (los de fábrica si no hay). */
   vivos: ParametrosVivos;
   /** Las personas que se consideran vivas con esos parámetros, calculadas
@@ -106,13 +115,15 @@ const Contexto = createContext<Preferencias | null>(null);
  * valgan, como si no estuvieran). */
 function leerPropias(datos: Record<string, unknown> | undefined): Propias {
   if (!datos) return SIN_PROPIAS;
-  const { simbolos, personaInicio, region, modoColor, generaciones } = datos;
+  const { simbolos, personaInicio, region, modoColor, generaciones, aniversarios, aniversariosTipos } = datos;
   return {
     simbolos: validarPreferencia(simbolos),
     personaInicio: typeof personaInicio === "string" && HANDLE.test(personaInicio) ? personaInicio : null,
     region: typeof region === "string" && normalizarRegion(region) === region ? region : null,
     modoColor: modoColor === "claro" || modoColor === "oscuro" ? modoColor : null,
     generaciones: generacionesValidas(generaciones),
+    aniversarios: SUSCRIPCIONES.find((s) => s === aniversarios) ?? null,
+    aniversariosTipos: leerTiposCorreo(aniversariosTipos),
   };
 }
 
@@ -199,6 +210,10 @@ export function ProveedorPreferencias({ children }: { children: ReactNode }) {
   );
 
   const guardarGeneraciones = useCallback((g: Generaciones | null) => guardarPropias({ generaciones: g }), [guardarPropias]);
+  const guardarAniversarios = useCallback((s: Suscripcion | null) => guardarPropias({ aniversarios: s }), [guardarPropias]);
+  const guardarAniversariosTipos = useCallback(
+    (tipos: TipoAniversario[] | null) => guardarPropias({ aniversariosTipos: leerTiposCorreo(tipos) }), [guardarPropias],
+  );
 
   const guardarDelArbol = useCallback(async (p: PreferenciaSimbolos) => {
     await setDoc(doc(db, RUTA_DEFECTO), { simbolos: camposSimbolos(p), actualizada: serverTimestamp() });
@@ -238,6 +253,10 @@ export function ProveedorPreferencias({ children }: { children: ReactNode }) {
     guardarModoColor,
     generaciones: propias.generaciones ?? GENERACIONES_POR_DEFECTO,
     guardarGeneraciones,
+    aniversarios: propias.aniversarios,
+    guardarAniversarios,
+    aniversariosTipos: propias.aniversariosTipos,
+    guardarAniversariosTipos,
     vivos,
     vivas,
     guardarVivos,
@@ -245,7 +264,7 @@ export function ProveedorPreferencias({ children }: { children: ReactNode }) {
     guardarNombreArbol,
   }), [
     propias, delArbol, guardarPropia, guardarDelArbol, personaInicio, elegida, guardarPersonaInicio, guardarRegion,
-    guardarModoColor, guardarGeneraciones, vivos, vivas, guardarVivos, nombreArbol, guardarNombreArbol,
+    guardarModoColor, guardarGeneraciones, guardarAniversarios, guardarAniversariosTipos, vivos, vivas, guardarVivos, nombreArbol, guardarNombreArbol,
   ]);
 
   // Con otra región, todo se vuelve a dibujar desde cero (hay listas y

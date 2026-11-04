@@ -29,7 +29,7 @@ export const CORREO_CONTACTO = "contacto@freswer.org";
 
 /** Fecha de la última revisión de la nota de privacidad (AAAA-MM-DD): se
  * cambia cada vez que cambie el texto. */
-export const FECHA_PRIVACIDAD = "2026-11-02";
+export const FECHA_PRIVACIDAD = "2026-11-03";
 
 /** Dirección pública del código fuente de la web, para la página de
  * créditos (`/creditos`). La licencia AGPL-3.0 obliga a ofrecerlo a quien

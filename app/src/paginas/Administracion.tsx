@@ -24,7 +24,7 @@ import type { Arbol } from "../arbol/arbol";
 import { useArbol } from "../arbol/contexto";
 import { textoMomento } from "../arbol/fechas";
 import type { Base, Persona } from "../arbol/tipos";
-import { EnlacePersona, useAnios } from "../componentes/Enlaces";
+import { AvisoAjustes, EnlacePersona, useAnios } from "../componentes/Enlaces";
 import { FILTROS_VACIOS, TODOS, filtrarRegistro, opcionesAutores, type FiltrosRegistro } from "../componentes/filtrosRegistro";
 import { Tarjeta } from "../componentes/Ficha";
 import { textoError } from "../componentes/Formulario";
@@ -52,6 +52,7 @@ export function Administracion() {
   return (
     <Stack maw={1100} gap="lg">
       <Title order={1}>{t("admin.titulo")}</Title>
+      {admin && <AvisoAjustes texto={t("avisoAjustes.administracion")} seccion="nombre-arbol" />}
       <Tabs value={pestana} onChange={(v) => v && setParams({ pestana: v }, { replace: true })} keepMounted={false}>
         <Tabs.List>
           {pestanas.map((p) => <Tabs.Tab key={p} value={p}>{t(`admin.pestana.${p}` as Clave)}</Tabs.Tab>)}

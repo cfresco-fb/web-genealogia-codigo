@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { usePreferencias } from "../acceso/preferencias";
 import { useArbol } from "../arbol/contexto";
 import { textoMomento } from "../arbol/fechas";
-import { EnlacePersona, rutaPersona } from "../componentes/Enlaces";
+import { AvisoAjustes, EnlacePersona, rutaPersona } from "../componentes/Enlaces";
 import { LineasVitales } from "../componentes/Ficha";
 import { Foto } from "../componentes/Foto";
 import { VolverAMi } from "../componentes/VolverAMi";
@@ -62,6 +62,7 @@ export function Inicio() {
         <Title order={2}>{t("inicio.personaInicio")}</Title>
         <PersonaInicio />
         <VolverAMi />
+        <AvisoAjustes texto={t("avisoAjustes.personaInicio")} seccion="persona-inicio" />
       </Stack>
 
       <Stack gap="sm">

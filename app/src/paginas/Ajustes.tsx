@@ -1,25 +1,28 @@
 // Ajustes (decisiones del 23/10/2026, «Ajustes, persona de inicio, cajas y
 // fechas», y del 24/10/2026, «Diseño visual»), en dos bloques, cada sección
 // en su tarjeta: «Tu cuenta» (correo con el rol, quién soy en el árbol,
-// persona de inicio, símbolos, región y formato de fecha, modo de color) y
+// persona de inicio, símbolos, región y formato de fecha, modo de color,
+// aniversarios por correo) y
 // «Administración del árbol» (nombre del árbol, quién se considera vivo).
 // Los demás usuarios no ven el bloque del administrador. «Salir», en el
 // menú de la cuenta de la cabecera (28/10/2026).
 
-import { useMemo, useState, type ReactNode } from "react";
-import { Alert, Checkbox, Group, NumberInput, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "react-router";
+import { Alert, Checkbox, Group, NumberInput, Radio, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core";
 import { GENERACIONES_MIN, GENERACIONES_POR_DEFECTO, type Generaciones as GeneracionesArbol } from "../arbol/grafico";
 import { MODOS_COLOR, usePreferencias, type ModoColor } from "../acceso/preferencias";
 import { useSesion } from "../acceso/sesion";
 import { useArbol } from "../arbol/contexto";
 import { muestraFecha, normalizarRegion, regionFechas, regionNavegador } from "../arbol/fechas";
-import { EnlacePersona } from "../componentes/Enlaces";
+import { EnlacePersona, type SeccionAjustes } from "../componentes/Enlaces";
 import { Tarjeta } from "../componentes/Ficha";
 import { SeccionNombreArbol } from "../componentes/NombreArbol";
 import { SeccionSimbolos } from "../componentes/Simbolos";
 import { SeccionVivos } from "../componentes/Vivos";
 import { VolverAMi } from "../componentes/VolverAMi";
 import { comparador, idioma, t, type Clave } from "../i18n";
+import { TIPOS_ANIVERSARIO, type TipoAniversario } from "../../../comun/aniversarios.ts";
 
 /** Regiones que se ofrecen (además de la del navegador, si no está): las
  * de los países donde hay familia o es fácil que la haya. */
@@ -39,10 +42,12 @@ function nombreRegion(r: string): string {
   }
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
+/** Con `id`, se llega directamente desde otras páginas (/ajustes#id,
+ * rutaAjustes; Carlos, 04/11/2026), sin quedar debajo de la cabecera. */
+function Seccion({ titulo, id, children }: { titulo: string; id?: SeccionAjustes; children: ReactNode }) {
   return (
     <Tarjeta>
-      <Stack gap="xs" component="section">
+      <Stack gap="xs" component="section" id={id} style={{ scrollMarginTop: 96 }}>
         <Title order={3}>{titulo}</Title>
         {children}
       </Stack>
@@ -88,6 +93,64 @@ function ModoDeColor() {
         data={MODOS_COLOR.map((m) => ({ value: m, label: t(`ajustes.modo.${m}` as Clave) }))}
         style={{ alignSelf: "flex-start" }}
       />
+      {estado === "guardado" && <Text size="sm" c="green">{t("simbolos.guardado")}</Text>}
+      {estado === "error" && <Alert color="red"><Text size="sm">{t("simbolos.error")}</Text></Alert>}
+    </>
+  );
+}
+
+/** Aniversarios por correo (calendario, 03/11/2026; docs/calendario.md):
+ * ninguno, semanal o mensual. El correo sale el día antes del periodo. Con
+ * correo, qué tipos lleva, cada uno con su explicación (04/11/2026); al
+ * menos uno. */
+function AniversariosPorCorreo() {
+  const { aniversarios, guardarAniversarios, aniversariosTipos, guardarAniversariosTipos } = usePreferencias();
+  const [estado, setEstado] = useState<"" | "guardando" | "guardado" | "error">("");
+  const tipos = aniversariosTipos ?? TIPOS_ANIVERSARIO;
+
+  async function guardar(accion: () => Promise<void>) {
+    setEstado("guardando");
+    try {
+      await accion();
+      setEstado("guardado");
+    } catch (e) {
+      console.error(e);
+      setEstado("error");
+    }
+  }
+  const cambiar = (v: string) => guardar(() => guardarAniversarios(v === "semanal" || v === "mensual" ? v : null));
+  const marcar = (tipo: TipoAniversario, marcado: boolean) =>
+    guardar(() => guardarAniversariosTipos(TIPOS_ANIVERSARIO.filter((x) => (x === tipo ? marcado : tipos.includes(x)))));
+
+  return (
+    <>
+      <Text size="sm" c="dimmed">{t("ajustes.aniversariosAyuda")}</Text>
+      <Radio.Group value={aniversarios ?? "ninguno"} onChange={cambiar} aria-label={t("ajustes.aniversarios")}>
+        <Stack gap="sm" mt={4}>
+          <Radio value="ninguno" label={t("ajustes.aniversarios.ninguno")} disabled={estado === "guardando"} />
+          <Radio value="semanal" label={t("ajustes.aniversarios.semanal")} description={t("ajustes.aniversarios.semanalAyuda")} disabled={estado === "guardando"} />
+          <Radio value="mensual" label={t("ajustes.aniversarios.mensual")} description={t("ajustes.aniversarios.mensualAyuda")} disabled={estado === "guardando"} />
+        </Stack>
+      </Radio.Group>
+      {aniversarios && (
+        <div role="group" aria-labelledby="aniversarios-tipos">
+          <Text id="aniversarios-tipos" size="sm" fw={600} mt="xs">{t("ajustes.aniversarios.tipos")}</Text>
+          <Text size="sm" c="dimmed" mb={6}>{t("ajustes.aniversarios.tiposAyuda")}</Text>
+          <Stack gap="sm">
+            {TIPOS_ANIVERSARIO.map((x) => (
+              <Checkbox
+                key={x}
+                label={t(`calendario.filtro.${x}` as Clave)}
+                description={t(`calendario.explica.${x}` as Clave)}
+                checked={tipos.includes(x)}
+                // El último marcado no se puede quitar: para no recibir nada, «Ninguno».
+                disabled={estado === "guardando" || (tipos.length === 1 && tipos.includes(x))}
+                onChange={(e) => marcar(x, e.currentTarget.checked)}
+              />
+            ))}
+          </Stack>
+        </div>
+      )}
       {estado === "guardado" && <Text size="sm" c="green">{t("simbolos.guardado")}</Text>}
       {estado === "error" && <Alert color="red"><Text size="sm">{t("simbolos.error")}</Text></Alert>}
     </>
@@ -226,6 +289,11 @@ export function Ajustes() {
   const { usuario, invitacion } = useSesion();
   const admin = invitacion.rol === "administrador";
   const vinculada = arbol.persona(invitacion.persona);
+  // Con /ajustes#seccion, a esa sección (React Router no lo hace solo).
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: "start" });
+  }, [hash]);
 
   return (
     <Stack gap="xl" maw={760}>
@@ -254,34 +322,38 @@ export function Ajustes() {
             : <Text c="dimmed">{t("ajustes.sinVinculo")}</Text>}
         </Seccion>
 
-        <Seccion titulo={t("ajustes.personaInicio")}>
+        <Seccion titulo={t("ajustes.personaInicio")} id="persona-inicio">
           <PersonaInicio />
         </Seccion>
 
-        <Seccion titulo={t("ajustes.generaciones")}>
+        <Seccion titulo={t("ajustes.generaciones")} id="generaciones">
           <Generaciones />
         </Seccion>
 
-        <Seccion titulo={t("simbolos.titulo")}>
+        <Seccion titulo={t("simbolos.titulo")} id="simbolos">
           <SeccionSimbolos />
         </Seccion>
 
-        <Seccion titulo={t("ajustes.region")}>
+        <Seccion titulo={t("ajustes.region")} id="region">
           <Region />
         </Seccion>
 
-        <Seccion titulo={t("ajustes.modoColor")}>
+        <Seccion titulo={t("ajustes.modoColor")} id="modo-color">
           <ModoDeColor />
+        </Seccion>
+
+        <Seccion titulo={t("ajustes.aniversarios")} id="aniversarios">
+          <AniversariosPorCorreo />
         </Seccion>
       </Bloque>
 
       {admin && (
         <Bloque titulo={t("ajustes.administracion")}>
-          <Seccion titulo={t("nombreArbol.titulo")}>
+          <Seccion titulo={t("nombreArbol.titulo")} id="nombre-arbol">
             <SeccionNombreArbol />
           </Seccion>
 
-          <Seccion titulo={t("vivos.titulo")}>
+          <Seccion titulo={t("vivos.titulo")} id="vivos">
             <SeccionVivos />
           </Seccion>
         </Bloque>

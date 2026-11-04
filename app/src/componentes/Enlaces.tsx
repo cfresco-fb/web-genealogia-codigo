@@ -6,6 +6,21 @@ import type { Familia, Persona } from "../arbol/tipos";
 import { t } from "../i18n";
 
 export const rutaPersona = (handle: string) => `/persona/${handle}`;
+
+/** Secciones de Ajustes a las que se puede llegar directamente
+ * (/ajustes#…; Carlos, 04/11/2026). */
+export type SeccionAjustes = "persona-inicio" | "generaciones" | "simbolos" | "region" | "modo-color" | "aniversarios" | "nombre-arbol" | "vivos";
+export const rutaAjustes = (seccion: SeccionAjustes) => `/ajustes#${seccion}`;
+
+/** Una línea discreta que dice que algo se elige en Ajustes, con el enlace a
+ * su sección («… se eligen en Ajustes.»; Carlos, 04/11/2026). */
+export function AvisoAjustes({ texto, seccion, size = "sm" }: { texto: string; seccion: SeccionAjustes; size?: "xs" | "sm" }) {
+  return (
+    <Text size={size} c="dimmed">
+      {texto} <Anchor component={Link} to={rutaAjustes(seccion)} inherit>{t("ajustes.titulo")}</Anchor>.
+    </Text>
+  );
+}
 export const rutaFamilia = (handle: string) => `/familia/${handle}`;
 export const rutaLugar = (handle: string) => `/lugar/${handle}`;
 /** El mapa de una persona (su recorrido) o centrado en un lugar (añadidos

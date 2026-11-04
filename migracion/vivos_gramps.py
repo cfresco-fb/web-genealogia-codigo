@@ -1,6 +1,6 @@
 """Calcula con la biblioteca de Gramps quién está «probablemente vivo» en
 el árbol de ejemplo, para comprobar la traducción de la web
-(app/src/arbol/vivos.ts) persona a persona.
+(comun/vivos.ts) persona a persona.
 
 Guarda en app/src/arbol/datos-prueba/vivos-ejemplo.json.gz:
 - el árbol de ejemplo reducido a lo que usa el cálculo (personas, familias

@@ -4,6 +4,7 @@
 import type { Generaciones } from "../arbol/grafico";
 import type { PreferenciaSimbolos } from "../arbol/simbolos";
 import type { ModoColor } from "./preferencias";
+import type { Suscripcion, TipoAniversario } from "../../../comun/aniversarios.ts";
 
 /** Lo que cada usuario guarda para sí; null = el valor por defecto. */
 export interface Propias {
@@ -12,8 +13,12 @@ export interface Propias {
   region: string | null;
   modoColor: Exclude<ModoColor, "auto"> | null;
   generaciones: Generaciones | null;
+  /** Aniversarios por correo (calendario, 03/11/2026); null = ninguno. */
+  aniversarios: Suscripcion | null;
+  /** Qué tipos lleva ese correo (04/11/2026); null = todos. */
+  aniversariosTipos: TipoAniversario[] | null;
 }
-export const SIN_PROPIAS: Propias = { simbolos: null, personaInicio: null, region: null, modoColor: null, generaciones: null };
+export const SIN_PROPIAS: Propias = { simbolos: null, personaInicio: null, region: null, modoColor: null, generaciones: null, aniversarios: null, aniversariosTipos: null };
 
 /** Lo que se escribe de los símbolos: solo los campos que admiten las reglas. */
 export function camposSimbolos(p: PreferenciaSimbolos) {
@@ -40,5 +45,7 @@ export function camposPreferencias(p: Propias, existePersona: (h: string) => boo
   if (propias.region) campos.region = propias.region;
   if (propias.modoColor) campos.modoColor = propias.modoColor;
   if (propias.generaciones) campos.generaciones = propias.generaciones;
+  if (propias.aniversarios) campos.aniversarios = propias.aniversarios;
+  if (propias.aniversariosTipos) campos.aniversariosTipos = propias.aniversariosTipos;
   return { campos, propias };
 }
