@@ -88,7 +88,7 @@ export function ListaPersonas() {
   }), [arbol]);
 
   const columnas = useMemo((): ColumnaLista<FilaPersona>[] => sinId<FilaPersona>(admin, [
-    { clave: "nombre", etiqueta: t("col.nombre"), ancho: 260, celda: (f) => f.nombre, titulo: (f) => f.nombre, valor: (f) => f.nombre },
+    { clave: "nombre", etiqueta: t("col.nombre"), ancho: 260, anchoPorTexto: true, celda: (f) => f.nombre, titulo: (f) => f.nombre, valor: (f) => f.nombre },
     { clave: "id", etiqueta: t("col.id"), ancho: 80, celda: (f) => f.p.gramps_id, valor: (f) => f.p.gramps_id },
     { clave: "sexo", etiqueta: t("col.sexo"), ancho: 110, celda: (f) => t(`sexo.${f.p.gender}` as "sexo.0"), valor: (f) => t(`sexo.${f.p.gender}` as "sexo.0") },
     { clave: "nacimiento", etiqueta: t("col.nacimiento"), ancho: 210, celda: (f) => <FechaVitalCelda fv={f.nac} />, valor: (f) => valorOrden(f.nac?.evento.date) },
@@ -182,8 +182,8 @@ export function ListaFamilias() {
   type Fila = (typeof filas)[number];
 
   const columnas = useMemo((): ColumnaLista<Fila>[] => sinId<Fila>(admin, [
-    { clave: "padre", etiqueta: t("col.padre"), ancho: 240, celda: (x) => x.padre, titulo: (x) => x.padre, valor: (x) => x.padre },
-    { clave: "madre", etiqueta: t("col.madre"), ancho: 240, celda: (x) => x.madre, titulo: (x) => x.madre, valor: (x) => x.madre },
+    { clave: "padre", etiqueta: t("col.padre"), ancho: 240, anchoPorTexto: true, celda: (x) => x.padre, titulo: (x) => x.padre, valor: (x) => x.padre },
+    { clave: "madre", etiqueta: t("col.madre"), ancho: 240, anchoPorTexto: true, celda: (x) => x.madre, titulo: (x) => x.madre, valor: (x) => x.madre },
     { clave: "id", etiqueta: t("col.id"), ancho: 80, celda: (x) => x.f.gramps_id, valor: (x) => x.f.gramps_id },
     { clave: "relacion", etiqueta: t("col.relacion"), ancho: 130, celda: (x) => nombreTipo(x.f.type), valor: (x) => nombreTipo(x.f.type) },
     { clave: "matrimonio", etiqueta: t("col.matrimonio"), ancho: 170, celda: (x) => textoFecha(x.matrimonio?.date, "corto"), valor: (x) => valorOrden(x.matrimonio?.date) },
@@ -227,7 +227,7 @@ export function ListaEventos() {
 
   const columnas = useMemo((): ColumnaLista<Fila>[] => sinId<Fila>(admin, [
     { clave: "tipo", etiqueta: t("col.tipo"), ancho: 150, celda: (x) => x.tipo, valor: (x) => x.tipo },
-    { clave: "participantes", etiqueta: t("col.participantes"), ancho: 260, celda: (x) => x.nombres, titulo: (x) => x.nombres, valor: (x) => x.nombres },
+    { clave: "participantes", etiqueta: t("col.participantes"), ancho: 260, anchoPorTexto: true, celda: (x) => x.nombres, titulo: (x) => x.nombres, valor: (x) => x.nombres },
     { clave: "fecha", etiqueta: t("col.fecha"), ancho: 170, celda: (x) => x.fecha, valor: (x) => valorOrden(x.e.date) },
     { clave: "lugar", etiqueta: t("col.lugar"), ancho: 240, celda: (x) => x.lugar, titulo: (x) => x.lugar, valor: (x) => x.lugar },
     { clave: "descripcion", etiqueta: t("col.descripcion"), ancho: 260, celda: (x) => x.e.description, titulo: (x) => x.e.description, valor: (x) => x.e.description },

@@ -252,27 +252,29 @@ export class Arbol {
     return partes.join(" ");
   }
 
-  /** «Nombre Apellidos Sufijo». */
-  nombre(p: Persona | null | undefined): string {
-    if (!p) return t("ficha.desconocido");
-    const n = p.primary_name;
-    return [n.first_name, this.apellidos(n), n.suffix].filter(Boolean).join(" ") || t("persona.sinNombre");
-  }
-
-  /** El apodo del nombre principal entre comillas («“Juancho”»), o "" si
-   * no tiene (decisión de Carlos del 27/10/2026: en la ficha, las cajas
-   * del árbol y el libro). */
-  apodo(p: Persona): string {
-    const nick = p.primary_name.nick.trim();
+  /** El apodo entre comillas («“Juancho”»), o "" si no tiene. Va dentro del
+   * nombre, detrás del de pila (decisión de Carlos del 05/11/2026). */
+  private apodo(n: Nombre): string {
+    const nick = n.nick.trim();
     return nick ? `“${nick}”` : "";
   }
 
-  /** «Apellidos, Nombre Sufijo», para listas ordenadas por apellido. */
+  /** «Nombre “Apodo” Sufijo»: la primera línea de las cajas del árbol. */
+  nombrePila(n: Nombre): string {
+    return [n.first_name, this.apodo(n), n.suffix].filter(Boolean).join(" ");
+  }
+
+  /** «Nombre “Apodo” Apellidos Sufijo». */
+  nombre(p: Persona | null | undefined): string {
+    if (!p) return t("ficha.desconocido");
+    const n = p.primary_name;
+    return [n.first_name, this.apodo(n), this.apellidos(n), n.suffix].filter(Boolean).join(" ") || t("persona.sinNombre");
+  }
+
+  /** «Apellidos, Nombre “Apodo” Sufijo», para listas ordenadas por apellido. */
   nombreOrden(p: Persona): string {
     const n = p.primary_name;
-    const pila = [n.first_name, n.suffix].filter(Boolean).join(" ");
-    const ap = this.apellidos(n);
-    return [ap, pila].filter(Boolean).join(", ") || t("persona.sinNombre");
+    return [this.apellidos(n), this.nombrePila(n)].filter(Boolean).join(", ") || t("persona.sinNombre");
   }
 
   /** «Padre y Madre». */

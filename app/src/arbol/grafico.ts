@@ -109,7 +109,7 @@ class Constructor {
   private caja(p: Persona, ref?: ChildRef): TreePerson {
     const a = this.arbol;
     const n = p.primary_name;
-    const nombre = [n.first_name, n.suffix].filter(Boolean).join(" ");
+    const nombre = a.nombrePila(n);
     const apellidos = a.apellidos(n);
     if (this.privadas?.has(p.handle)) return this.cajaPrivada(p, nombre, apellidos);
     const formato = this.simbolos.formato ?? "corto";
@@ -140,7 +140,6 @@ class Constructor {
       // «[sin nombre de pila]» (TreeChartLabels).
       nameSurname: apellidos,
       nameGiven: nombre,
-      nick: a.apodo(p) || undefined,
       grampsId: this.simbolos.ids ? p.gramps_id : undefined,
       idLine: this.simbolos.idsDebajo ? p.gramps_id : undefined,
       birth: nacimiento,
@@ -160,7 +159,7 @@ class Constructor {
   private cajaPrivada(p: Persona, nombre: string, apellidos: string): TreePerson {
     const viva = t("libro.personaViva");
     const caja: TreePerson = {
-      handle: p.handle, gender: p.gender, nameSurname: apellidos, nameGiven: nombre, nick: this.arbol.apodo(p) || undefined,
+      handle: p.handle, gender: p.gender, nameSurname: apellidos, nameGiven: nombre,
       grampsId: this.simbolos.ids ? p.gramps_id : undefined,
       idLine: this.simbolos.idsDebajo ? p.gramps_id : undefined,
       birth: { ...SIN_LINEA, text: viva, keep: viva.length }, death: SIN_LINEA,
@@ -189,8 +188,10 @@ class Constructor {
   }
 
   /** Ascendientes: padre arriba y madre abajo, de la primera familia de
-   * padres (la principal en Gramps). */
-  ascendientes(p: Persona, nivel: number, ruta: Set<string>, id: string, central?: TreePerson): TreeNode {
+   * padres (la principal en Gramps). Con `ovaloPadres`, entre la persona y
+   * sus padres, el óvalo de esa familia (solo la persona central y solo en su
+   * bloque; 05/11/2026). */
+  ascendientes(p: Persona, nivel: number, ruta: Set<string>, id: string, central?: TreePerson, ovaloPadres = false): TreeNode {
     const nodo: TreeNode = { id, person: central ?? this.caja(p) };
     const familia = this.arbol.familiasPadres(p)[0];
     const padres = familia ? [this.arbol.padre(familia), this.arbol.madre(familia)] : [];
@@ -205,7 +206,7 @@ class Constructor {
     if (padre) hijos.push(this.ascendientes(padre, nivel + 1, ruta, `${id}f`));
     if (madre) hijos.push(this.ascendientes(madre, nivel + 1, ruta, `${id}m`));
     ruta.delete(p.handle);
-    if (hijos.length) nodo.children = hijos;
+    if (hijos.length) nodo.children = ovaloPadres && familia ? [{ id: `${id}o`, family: this.familiaPadres(familia), children: hijos }] : hijos;
     return nodo;
   }
 
@@ -257,7 +258,8 @@ class Constructor {
    * - tipo desconocido: nada (el óvalo solo une);
    * - en todos, «div. fecha, lugar» y «sep. fecha» si hay divorcio o
    *   separación; sin fecha ni lugar (la separación, sin fecha),
-   *   «divorciados» o «separados».
+   *   «divorciados» o «separados». Con ellos, «casados» y «Pareja» no salen;
+   *   «matr. fecha, lugar», sí (05/11/2026).
    * Padres sin relación de pareja: óvalo con el borde discontinuo y «sin
    * relación de pareja» dentro (en dos líneas si no cabe; lo parte el
    * dibujo). En el texto emergente, los mismos datos con rótulo, como en las
@@ -265,18 +267,31 @@ class Constructor {
   private familia(f: Familia, p: Persona): TreeFamily {
     const a = this.arbol;
     const conyuge = a.conyuge(f, p);
+    return this.ovalo(f, [p, conyuge], conyuge ? a.nombre(conyuge) : t("ficha.conyugeDesconocido"), { spouse: conyuge ? this.caja(conyuge) : null });
+  }
+
+  /** El óvalo de los padres de la persona central: el mismo, sin caja de
+   * cónyuge (los padres ya tienen la suya). */
+  private familiaPadres(f: Familia): TreeFamily {
+    const a = this.arbol;
+    return this.ovalo(f, [a.padre(f), a.madre(f)], a.nombreFamilia(f), { spouse: null, parents: true });
+  }
+
+  /** El óvalo de una familia. `miembros`, los de la pareja, para omitir los
+   * datos si alguno es una persona viva omitida; `titulo`, la primera línea
+   * del texto emergente. */
+  private ovalo(f: Familia, miembros: (Persona | null)[], titulo: string, caja: Pick<TreeFamily, "spouse" | "parents">): TreeFamily {
+    const a = this.arbol;
     const pareja = a.pareja(f);
     const formato = this.simbolos.formato ?? "corto";
-    const titulo = conyuge ? a.nombre(conyuge) : t("ficha.conyugeDesconocido");
-    const spouse = conyuge ? this.caja(conyuge) : null;
     const sinRelacion = pareja.clase === "sinRelacion";
     const tipo = linea(t("ficha.tipoRelacion"), nombreTipo(f.type));
     // Con una persona viva omitida en la pareja, sin fechas ni lugares.
-    if (this.privadas?.has(p.handle) || (conyuge && this.privadas?.has(conyuge.handle))) {
+    if (miembros.some((m) => m && this.privadas?.has(m.handle))) {
       const lines = pareja.clase === "pareja" ? [lineaOvalo(t("grafico.pareja"))]
         : pareja.clase === "matrimonio" ? [lineaOvalo(t("grafico.casados"))]
           : sinRelacion ? [lineaOvalo(t("grafico.sinRelacion"))] : [];
-      return { handle: f.handle, spouse, lines, dashed: sinRelacion, title: [titulo, tipo].join("\n") };
+      return { handle: f.handle, ...caja, lines, dashed: sinRelacion, title: [titulo, tipo].join("\n") };
     }
     const datoCompleto = (ev: Evento | null, fmt: FormatoFecha = "largo", rotulo = "") =>
       a.datoVital(ev && { evento: ev, sustituto: false }, rotulo || (ev ? nombreTipo(ev.type) : ""), fmt);
@@ -286,6 +301,7 @@ class Constructor {
       return this.simbolos.sencillas && fmt !== "largo" ? soloAnio(d) : d;
     };
     const lines: TreeLine[] = [];
+    const termina = !!(pareja.divorcio || pareja.separacion);
     if (pareja.clase === "matrimonio") {
       const boda = pareja.boda && dato(pareja.boda, formato);
       if (boda && !boda.falta) {
@@ -293,9 +309,9 @@ class Constructor {
         const unaLinea = lineaCaja(boda, t("grafico.matrimonio"), false);
         const fecha = `${t("grafico.matrimonio")} ${boda.fecha || t("ficha.sinFecha")}`;
         lines.push(boda.lugar ? { ...unaLinea, wrap: [fecha, boda.lugar] } : unaLinea);
-      } else lines.push(lineaOvalo(t("grafico.casados")));
+      } else if (!termina) lines.push(lineaOvalo(t("grafico.casados")));
     }
-    if (pareja.clase === "pareja") {
+    if (pareja.clase === "pareja" && !termina) {
       lines.push(lineaOvalo(t("grafico.pareja")));
     }
     // Sin fecha ni lugar, la palabra sola, como «casados» (31/10/2026).
@@ -316,7 +332,7 @@ class Constructor {
     };
     return {
       handle: f.handle,
-      spouse,
+      ...caja,
       lines: sinRelacion ? [lineaOvalo(t("grafico.sinRelacion"))] : lines,
       dashed: sinRelacion,
       title: [
@@ -361,20 +377,20 @@ export function numeroDeHijos(arbol: Arbol, p: Persona): number {
  * solo esos hijos de la persona central (para el PDF). Con `privadas`, las
  * personas vivas cuyos datos se omiten (libro en PDF). Con `parejas` (por
  * defecto), el de ascendientes lleva también los cónyuges de la persona
- * central y sus óvalos; sin él, solo los ascendientes (las páginas de
- * continuación del PDF, de otras personas). */
+ * central y sus óvalos, y el óvalo de sus padres; sin él, solo los
+ * ascendientes (las páginas de continuación del PDF, de otras personas). */
 export function construirGrafico(
   arbol: Arbol, persona: Persona, tipo: TipoGrafico, generaciones: number, simbolos: PresentacionCajas, tramo?: TramoHijos,
   privadas?: ReadonlySet<string>, parejas = true,
 ): DatosGrafico {
   const c = new Constructor(arbol, Math.max(1, generaciones - 1), simbolos, tramo, privadas);
   const central = c.cajaCentral(persona);
-  const ascendientes = tipo !== "descendientes" ? c.ascendientes(persona, 0, new Set(), "p", central) : null;
+  const ascendientes = tipo !== "descendientes" ? c.ascendientes(persona, 0, new Set(), "p", central, parejas) : null;
   const descendientes = tipo !== "ascendientes"
     ? c.descendientes(persona, 0, new Set(), "p", undefined, central)
     : parejas ? c.parejas(persona, central) : null;
   // Los tramos que siguen al primero repiten la pareja encima de los hijos:
-  // solo con el nombre y el apodo (decisión del 27/10/2026).
+  // solo con el nombre (decisión del 27/10/2026; el apodo va en él).
   if (tramo && tramo.desde > 0 && descendientes) {
     for (const caja of [central, ...(descendientes.children ?? []).map((n) => n.family?.spouse)]) {
       if (caja) Object.assign(caja, { birth: SIN_LINEA, death: SIN_LINEA, photo: null });

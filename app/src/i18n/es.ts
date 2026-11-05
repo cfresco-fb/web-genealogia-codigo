@@ -38,6 +38,7 @@ export const es = {
 
   "lista.filtrar": "Filtrar esta lista…",
   "lista.columnas": "Columnas",
+  "lista.cambiarAncho": "Arrastra para cambiar el ancho",
   "lista.contador": "{n} de {total}",
   "lista.limpiarFiltros": "Quitar filtros",
   "lista.sexo": "Sexo",
@@ -123,11 +124,11 @@ export const es = {
   "mapa.deRama": "Mapa de {nombre}: {tipo}",
   "mapa.ramaAmbos": "ascendientes y descendientes",
   "mapa.verTodos": "Quitar y ver todos los lugares",
-  "mapa.verRama": "Ver una rama…",
+  "mapa.verRama": "Ver una persona y su familia…",
   "mapa.ayudaRama": "Muestra solo los lugares de una persona y sus ascendientes, sus descendientes (con sus cónyuges) o ambos.",
   "mapa.tipoRama": "Ascendientes, descendientes o ambos",
   "mapa.generaciones": "{n} generaciones",
-  "mapa.elegirPersona": "Elige una persona",
+  "mapa.elegirPersona": "Elige la persona principal",
   "mapa.buscarPersona": "Buscar por nombre",
   "mapa.grupo": "{n} lugares",
 
@@ -498,9 +499,6 @@ export const es = {
   // en castellano (gramps/plugins/lib/libnarrate.py). Los verbos van en
   // minúscula: detrás del nombre o, al principio de la frase, con
   // mayúscula. Género: 0 mujer, 1 hombre, 2 desconocido (como Gramps).
-  "libro.frase.apodo.0": "Conocida como {apodo}.",
-  "libro.frase.apodo.1": "Conocido como {apodo}.",
-  "libro.frase.apodo.2": "Apodo: {apodo}.",
   "libro.frase.nacio": "nació",
   "libro.frase.bautizo.0": "fue bautizada",
   "libro.frase.bautizo.1": "fue bautizado",

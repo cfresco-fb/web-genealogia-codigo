@@ -89,6 +89,28 @@ describe("Arbol", () => {
     expect(arbol.nombreFamilia(arbol.familias.get("f1")!)).toBe("José Pérez Núñez y María López");
   });
 
+  it("el apodo, dentro del nombre, detrás del de pila (05/11/2026)", () => {
+    const p1 = arbol.personas.get("p1")!;
+    const n = p1.primary_name;
+    n.nick = " Pepe ";
+    try {
+      expect(arbol.nombre(p1)).toBe("José “Pepe” Pérez Núñez");
+      expect(arbol.nombreOrden(p1)).toBe("Pérez Núñez, José “Pepe”");
+      expect(arbol.nombrePila(n)).toBe("José “Pepe”");
+      expect(arbol.nombreFamilia(arbol.familias.get("f1")!)).toBe("José “Pepe” Pérez Núñez y María López");
+      n.suffix = "Jr.";
+      expect(arbol.nombre(p1)).toBe("José “Pepe” Pérez Núñez Jr.");
+      expect(arbol.nombreOrden(p1)).toBe("Pérez Núñez, José “Pepe” Jr.");
+      expect(arbol.nombrePila(n)).toBe("José “Pepe” Jr.");
+      n.nick = "";
+      expect(arbol.nombre(p1)).toBe("José Pérez Núñez Jr.");
+      expect(arbol.nombreOrden(p1)).toBe("Pérez Núñez, José Jr.");
+    } finally {
+      n.nick = "";
+      n.suffix = "";
+    }
+  });
+
   it("nacimiento y defunción, con sustitutos como en Gramps", () => {
     const p1 = arbol.personas.get("p1")!;
     expect(arbol.nacimiento(p1)).toMatchObject({ sustituto: false, evento: { gramps_id: "E1" } });

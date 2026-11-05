@@ -4,7 +4,7 @@
 // desconocido, personas sin fechas ni padres, y datos con un ciclo.
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { measureTreeChart, type TreeNode } from "../gramps-connect/graficos/charts/treeChart";
+import { fitName, measureTreeChart, treeChartShapes, type TreeNode } from "../gramps-connect/graficos/charts/treeChart";
 import { Arbol } from "./arbol";
 import { prepararFechas } from "./fechas";
 import {
@@ -71,6 +71,9 @@ const INSTANTANEA = {
       persona("rr", "Erre", 1, [], ["fr1", "fr2", "fr3", "fr4", "fr5", "fr6", "fr7"]),
       ...["s1", "s2", "s3", "s4", "s5", "s6", "s7"].map((h, i) => persona(h, `Ese ${i + 1}`, 0, [], [`fr${i + 1}`])),
       persona("hr", "Hache", 1, ["fr3"], []),
+      // Divorcio o separación con y sin datos de la boda (05/11/2026).
+      persona("dd", "De", 1, [], ["fd1", "fd2", "fd3", "fd4", "fd5"]),
+      ...[1, 2, 3, 4, 5].map((i) => persona(`sd${i}`, `Ese de ${i}`, 0, [], [`fd${i}`])),
     ],
     Family: [
       familia("fa", "abuelo", "abuela", ["pablo", "quica"], ["e2"]),
@@ -91,6 +94,11 @@ const INSTANTANEA = {
       // Boda aproximada; divorcio sin datos y separación con lugar y sin
       // fecha (31/10/2026).
       familia("fr7", "rr", "s7", [], ["e9", "e10", "e11"]),
+      familia("fd1", "dd", "sd1", [], ["e10"]),
+      familia("fd2", "dd", "sd2", [], ["e12"]),
+      familia("fd3", "dd", "sd3", [], ["e7", "e10"]),
+      familia("fd4", "dd", "sd4", [], ["e13", "e11"]),
+      { ...familia("fd5", "dd", "sd5", [], ["e11"]), type: tipo("FamilyRelType", 1) },
     ],
     Event: [
       evento("e1", 12, 1850), evento("e2", 1, 1875),
@@ -104,6 +112,8 @@ const INSTANTANEA = {
       { ...evento("e9", 1, 1960), date: { ...SIN_FECHA, modifier: 3, dateval: [0, 0, 1960, false], sortval: 1960 * 365 } },
       evento("e10", 7, 0),
       { ...evento("e11", 0, 0), type: { ...tipo("EventType", 0), string: "@separacion" }, place: "l1" },
+      evento("e12", 7, 1990),
+      evento("e13", 1, 0),
     ],
     Place: [{ ...base("l1"), title: "", name: { value: "Madrid", lang: "" }, alt_names: [], placeref_list: [], place_type: tipo("PlaceType", 1), lat: "", long: "" }],
   },
@@ -150,15 +160,199 @@ describe("gráficos", () => {
     expect(g5.cajas).toBe(11);
   });
 
-  it("el apodo, entre comillas, aparte del nombre de pila", () => {
+  it("el apodo, entre comillas, dentro del nombre de pila; los apellidos, aparte (05/11/2026)", () => {
     p("quica").primary_name.nick = "Kika";
     try {
       const g = construirGrafico(arbol, p("quica"), "ascendientes", 1, ABREV);
-      expect(g.ascendientes!.person).toMatchObject({ nameGiven: "Quica", nick: "“Kika”", nameSurname: "Prueba" });
-      expect(construirGrafico(arbol, p("pablo"), "ascendientes", 1, ABREV).ascendientes!.person!.nick).toBeUndefined();
+      expect(g.ascendientes!.person).toMatchObject({ nameGiven: "Quica “Kika”", nameSurname: "Prueba" });
+      expect(g.ascendientes!.person!.title.split("\n")[0]).toBe("Quica “Kika” Prueba");
+      expect(construirGrafico(arbol, p("pablo"), "ascendientes", 1, ABREV).ascendientes!.person!.nameGiven).toBe("Pablo");
     } finally {
       p("quica").primary_name.nick = "";
     }
+  });
+
+  describe("el nombre de las cajas, en dos líneas (05/11/2026)", () => {
+    /** Una línea de texto medida a 1 unidad por carácter. */
+    const linea = (max: number, attrs: Record<string, string> = {}) => ({
+      textContent: "",
+      getAttribute: (a: string) => (a === "data-max" ? String(max) : attrs[a] ?? null),
+      getComputedTextLength() { return this.textContent.length; },
+    });
+    const textos = (max: number, n: number, attrs: Record<string, string>) => {
+      const lineas = [linea(max, attrs), ...Array.from({ length: n - 1 }, () => linea(max))];
+      fitName(lineas as unknown as SVGTextElement[]);
+      return lineas.map((l) => l.textContent);
+    };
+    const NOMBRE = { "data-full": "Ana “Pepa”", "data-full2": "Pérez Núñez" };
+
+    it("salto forzado: cada uno en su línea, aunque quepan juntos", () => {
+      expect(textos(40, 2, NOMBRE)).toEqual(["Ana “Pepa”", "Pérez Núñez"]);
+    });
+    it("cada línea, recortada con «…» si no cabe: se pierde el final, el apodo", () => {
+      expect(textos(8, 2, NOMBRE)).toEqual(["Ana “Pe…", "Pérez N…"]);
+    });
+    it("el ID, detrás de la última línea", () => {
+      expect(textos(40, 2, { ...NOMBRE, "data-suffix": " [I1]" })).toEqual(["Ana “Pepa”", "Pérez Núñez [I1]"]);
+      expect(textos(10, 2, { ...NOMBRE, "data-suffix": " [I1]" })).toEqual(["Ana “Pepa”", "Pére… [I1]"]);
+    });
+    it("con tres líneas, el nombre de pila que no cabe se parte por palabras y los apellidos van en la tercera", () => {
+      expect(textos(14, 3, { "data-full": "Ana María “Pepa”", "data-full2": "Pérez" })).toEqual(["Ana María", "“Pepa”", "Pérez"]);
+      expect(textos(8, 3, NOMBRE)).toEqual(["Ana", "“Pepa”", "Pérez N…"]);
+    });
+    it("el apodo no se parte, aunque tenga varias palabras: va entero a la segunda", () => {
+      expect(textos(13, 3, { "data-full": "Ana “Big Pepa” Sr", "data-full2": "Pérez" })).toEqual(["Ana", "“Big Pepa” Sr", "Pérez"]);
+    });
+    it("si ni con tres cabe, recorte con «…»", () => {
+      expect(textos(10, 3, { "data-full": "Ana María Luisa “Pepa”", "data-full2": "Pérez Núñez" })).toEqual(["Ana María", "Luisa “Pe…", "Pérez Núñ…"]);
+    });
+    it("los apellidos, en su línea; solo con foto en horizontal pueden ocupar dos", () => {
+      expect(textos(10, 3, NOMBRE)).toEqual(["Ana “Pepa”", "Pérez Núñ…", ""]);
+      expect(textos(10, 3, { ...NOMBRE, "data-surname-wrap": "" })).toEqual(["Ana “Pepa”", "Pérez", "Núñez"]);
+    });
+    it("«Cónyuge desconocido», sin apellidos: el texto, en todas las líneas", () => {
+      expect(textos(10, 2, { "data-full": "Cónyuge desconocido" })).toEqual(["Cónyuge", "desconoci…"]);
+    });
+  });
+
+  describe("tercera línea del nombre, solo en las filas que la necesitan (05/11/2026)", () => {
+    const LARGO = "Ana María Luisa";
+    /** En horizontal cabe más: hace falta uno más largo. */
+    const MUY_LARGO = "Ana María Luisa Teresa";
+    /** El árbol de z (z, su óvalo y sus padres c1 y c2), con c1 de nombre largo. */
+    const conLargo = <T,>(fn: () => T, nick = "Pepa", pila = LARGO): T => {
+      const n = p("c1").primary_name;
+      const antes = [n.first_name, n.nick];
+      n.first_name = pila;
+      n.nick = nick;
+      try {
+        return fn();
+      } finally {
+        [n.first_name, n.nick] = antes;
+      }
+    };
+    const arbolDeZ = () => construirGrafico(arbol, p("z"), "ascendientes", 2, ABREV).ascendientes!;
+    const altos = (t: TreeNode, disp: "vertical" | "horizontal") => {
+      const filas = new Map<number, Set<number>>();
+      for (const r of treeChartShapes(t, null, disp, false).rects) {
+        const clave = disp === "vertical" ? (r.y0 + r.y1) / 2 : (r.x0 + r.x1) / 2;
+        filas.set(clave, (filas.get(clave) ?? new Set()).add(r.y1 - r.y0));
+      }
+      return [...filas.values()].map((x) => [...x]);
+    };
+
+    it("con nombres cortos, dos líneas: la fila no crece", () => {
+      expect(measureTreeChart(arbolDeZ(), null, "vertical").height).toBe(84 + 40 + 46 + 40 + 84);
+    });
+    it("fila mixta en vertical: una línea (16) más alta, solo esa fila, para todas sus cajas", () => {
+      conLargo(() => {
+        const t = arbolDeZ();
+        expect(measureTreeChart(t, null, "vertical").height).toBe(84 + 40 + 46 + 40 + 84 + 16);
+        expect(altos(t, "vertical")).toEqual([[84], [100], [46]]);
+      });
+    });
+    it("en horizontal, si hay alguna, todas las columnas", () => {
+      conLargo(() => {
+        const t = arbolDeZ();
+        expect(altos(t, "horizontal")).toEqual([[106], [106], [46]]);
+      }, "Pepa", MUY_LARGO);
+    });
+    it("en horizontal, una columna con fotos ya tiene el hueco: no crece", () => {
+      conLargo(() => {
+        const t = structuredClone(arbolDeZ());
+        t.children![0].children![1].person!.photo = { handle: "foto", rect: null };
+        expect(altos(t, "horizontal")).toEqual([[90], [90], [46]]);
+      }, "Pepa", MUY_LARGO);
+    });
+    it("una sola palabra larga no se parte: no hace falta la tercera", () => {
+      conLargo(() => {
+        expect(measureTreeChart(arbolDeZ(), null, "vertical").height).toBe(84 + 40 + 46 + 40 + 84);
+      }, "", "Wolfeschlegelsteinhausenberg");
+    });
+    it("el reparto del PDF cuenta las filas más altas (y los ID, además)", () => {
+      conLargo(() => {
+        const g = construirGrafico(arbol, p("z"), "ascendientes", 2, { ...ABREV, idsDebajo: true });
+        expect(measureTreeChart(g.ascendientes, null, "vertical").height).toBe(84 + 16 + 40 + 46 + 40 + 84 + 32);
+      });
+    });
+  });
+
+  describe("óvalo de los padres de la persona central (05/11/2026)", () => {
+    const ovaloDe = (h: string, tipoG: "ascendientes" | "ambos" = "ascendientes", parejas = true) =>
+      construirGrafico(arbol, p(h), tipoG, 3, ABREV, undefined, undefined, parejas).ascendientes!.children?.[0];
+
+    it("con dos padres: en su fila, con los mismos textos que los demás óvalos, sin caja de cónyuge", () => {
+      const o = ovaloDe("pablo")!;
+      expect(o.family).toMatchObject({ handle: "fa", parents: true, spouse: null, dashed: false });
+      expect(o.family!.lines.map((l) => l.text)).toEqual(["matr. 1875"]);
+      expect(o.family!.title.split("\n")).toEqual(["Abuelo Prueba y Abuela Prueba", "Tipo de relación: Casados", "Matrimonio: 1875"]);
+      expect(o.children!.map((n) => n.person!.handle)).toEqual(["abuelo", "abuela"]);
+    });
+    it("con un solo padre, igual, sin caja de padre desconocido", () => {
+      const o = ovaloDe("c4")!;
+      expect(o.family!.parents).toBe(true);
+      expect(o.family!.lines.map((l) => l.text)).toEqual(["casados"]);
+      expect(o.children!.map((n) => n.person!.handle)).toEqual(["y"]);
+      const g = construirGrafico(arbol, p("c4"), "ascendientes", 2, ABREV);
+      expect(measureTreeChart(g.ascendientes, null, "vertical").height).toBe(84 + 40 + 46 + 40 + 84);
+      expect(measureTreeChart(g.ascendientes, null, "horizontal").width).toBe(230 + 60 + 170 + 60 + 230 + 4);
+    });
+    it("sin familia de padres, nada cambia", () => {
+      expect(ovaloDe("abuelo")).toBeUndefined();
+      expect(measureTreeChart(construirGrafico(arbol, p("abuelo"), "ascendientes", 2, ABREV).ascendientes, null, "vertical").height).toBe(84);
+    });
+    it("los padres sin relación de pareja, discontinuo", () => {
+      expect(ovaloDe("hr")!.family).toMatchObject({ dashed: true, lines: [expect.objectContaining({ text: "sin relación de pareja" })] });
+    });
+    it("solo en la persona central: las demás generaciones, sin óvalo", () => {
+      const g = construirGrafico(arbol, p("z"), "ascendientes", 4, ABREV);
+      expect(todas(g.ascendientes).filter((n) => n.family).map((n) => n.family!.handle)).toEqual(["fc"]);
+    });
+    it("no en los bloques de continuación del PDF (sin parejas)", () => {
+      expect(ovaloDe("pablo", "ascendientes", false)!.family).toBeUndefined();
+    });
+    it("en «Ambos», el de los padres arriba y los de las parejas abajo", () => {
+      const g = construirGrafico(arbol, p("c1"), "ambos", 2, ABREV);
+      expect(g.ascendientes!.children![0].family).toMatchObject({ handle: "fp1", parents: true });
+      expect(g.descendientes!.children![0].family).toMatchObject({ handle: "fc", spouse: expect.objectContaining({ handle: "c2" }) });
+      expect(g.descendientes!.children![0].family!.parents).toBeUndefined();
+    });
+    it("con un padre vivo omitido (libro), sin fechas", () => {
+      const g = construirGrafico(arbol, p("pablo"), "ascendientes", 2, ABREV, undefined, new Set(["abuela"]));
+      expect(g.ascendientes!.children![0].family!.lines.map((l) => l.text)).toEqual(["casados"]);
+    });
+    it("las personas se cuentan igual: el óvalo no es una caja", () => {
+      // Pablo, sus padres y sus dos parejas.
+      expect(construirGrafico(arbol, p("pablo"), "ascendientes", 2, ABREV).cajas).toBe(5);
+    });
+  });
+
+  it("óvalos con divorcio o separación: sin «casados» ni «Pareja» (05/11/2026)", () => {
+    const lineas = (h: string) => construirGrafico(arbol, p(h), "descendientes", 2, ABREV).descendientes!.children!
+      .map((n) => [n.family!.handle, n.family!.lines.map((l) => l.text)] as const);
+    const dd = new Map(lineas("dd"));
+    // Boda sin datos y divorcio sin datos.
+    expect(dd.get("fd1")).toEqual(["divorciados"]);
+    // Boda sin datos y divorcio con fecha.
+    expect(dd.get("fd2")).toEqual(["div. 1990"]);
+    // Boda con fecha y divorcio sin datos.
+    expect(dd.get("fd3")).toEqual(["matr. 1970", "divorciados"]);
+    // Boda sin fecha ni lugar y separación con lugar y sin fecha.
+    expect(dd.get("fd4")).toEqual(["separados"]);
+    // Pareja sin casar y separación sin fecha.
+    expect(dd.get("fd5")).toEqual(["separados"]);
+    const rr = new Map(lineas("rr"));
+    // Boda y divorcio con datos: las dos líneas (y la separación).
+    expect(rr.get("fr1")).toEqual(["matr. 1980, Madrid", "div. 1990, Madrid", "sep. 1995"]);
+    // Pareja sin casar y separación con fecha.
+    expect(rr.get("fr2")).toEqual(["sep. 1985"]);
+    // Sin divorcio ni separación, como hasta ahora.
+    expect(rr.get("fr5")).toEqual(["matr. 1970"]);
+    expect(rr.get("fr6")).toEqual(["casados"]);
+    expect(rr.get("fr4")).toEqual([]);
+    // En el texto emergente sigue todo: el tipo de relación y los eventos.
+    const fd5 = construirGrafico(arbol, p("dd"), "descendientes", 2, ABREV).descendientes!.children!.find((n) => n.family!.handle === "fd5")!.family!;
+    expect(fd5.title.split("\n").slice(1)).toEqual(["Tipo de relación: No casados", "Separación: sin fecha, Madrid"]);
   });
 
   it("ascendientes: la persona central con sus parejas y sus óvalos, sin los hijos", () => {
@@ -225,7 +419,7 @@ describe("gráficos", () => {
       ["matr. c. 1960", "divorciados", "separados"],
       ["matr. 1970"],
       ["matr. 1980, Madrid", "div. 1990, Madrid", "sep. 1995"],
-      ["Pareja", "sep. 1985"],
+      ["sep. 1985"],
       ["sin relación de pareja"],
       [],
       ["casados"],
@@ -331,7 +525,7 @@ describe("gráficos", () => {
   });
 
   it("identificadores: junto al nombre en pantalla; en su línea solo en el PDF con la casilla (30/10/2026)", () => {
-    const cajas = (o: object) => todas(construirGrafico(arbol, p("z"), "ascendientes", 3, { ...ABREV, ...o }).ascendientes).map((n) => n.person!);
+    const cajas = (o: object) => todas(construirGrafico(arbol, p("z"), "ascendientes", 3, { ...ABREV, ...o }).ascendientes).flatMap((n) => n.person ?? []);
     expect(cajas({ ids: true }).every((c) => c.grampsId && !c.idLine)).toBe(true);
     expect(cajas({ idsDebajo: true }).every((c) => c.idLine === c.handle.toUpperCase())).toBe(true);
     expect(cajas({ idsDebajo: true }).some((c) => c.grampsId)).toBe(false);

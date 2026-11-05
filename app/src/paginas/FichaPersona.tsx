@@ -158,13 +158,10 @@ export function FichaPersona() {
                 valor: <DatoPendiente actual={t(`ficha.sexo.${p.gender}` as Clave)} {...pedido((x) => t(`ficha.sexo.${x.gender}` as Clave))} />,
                 falta: p.gender === SEXO_DESCONOCIDO && !pedido((x) => String(x.gender)).solicitud,
               },
-              // Otros nombres y apodo, solo si los tiene o se han pedido
-              // (decisiones del 27/10/2026 y del 29/10/2026, «Datos vacíos»;
-              // nacimiento y sexo salen siempre).
+              // Otros nombres, solo si los tiene o se han pedido (decisión del
+              // 29/10/2026, «Datos vacíos»; nacimiento y sexo salen siempre).
               ...(p.alternate_names.length || pedido(otrosNombres).solicitud
                 ? [{ rotulo: t("ficha.otrosNombres"), valor: <DatoPendiente actual={otrosNombres(p)} {...pedido(otrosNombres)} /> }] : []),
-              ...(arbol.apodo(p) || pedido((x) => arbol.apodo(x)).solicitud
-                ? [{ rotulo: t("ficha.apodo"), valor: <DatoPendiente actual={arbol.apodo(p)} {...pedido((x) => arbol.apodo(x))} /> }] : []),
               ...(admin ? [{ rotulo: t("col.id"), valor: p.gramps_id }] : []),
             ]}
           />

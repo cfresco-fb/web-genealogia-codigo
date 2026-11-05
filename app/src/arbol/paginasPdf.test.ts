@@ -164,7 +164,20 @@ describe("PDF en páginas de continuación", () => {
     const horizontal = plan("r", "ascendientes", GENERACIONES, "A4", "landscape");
     expect(vertical.orientacion).toBe("portrait");
     expect(horizontal.orientacion).toBe("landscape");
-    expect(auto.paginas.length).toBe(Math.min(vertical.paginas.length, horizontal.paginas.length));
+    // En vertical, la primera página no llega a la letra mínima (el óvalo de
+    // los padres y «continúa en la pág.» no caben a lo ancho): se prefiere la
+    // que sí llega, aunque dé más páginas.
+    expect(letraMinima(vertical)!.pt).toBeLessThan(LETRA_MINIMA_PT);
+    expect(letraMinima(horizontal)!.pt).toBeGreaterThanOrEqual(LETRA_MINIMA_PT);
+    expect(auto.orientacion).toBe("landscape");
+    expect(auto.paginas.length).toBe(horizontal.paginas.length);
+    // Si llegan las dos, la que da menos páginas.
+    const m = plan("q", "ascendientes", GENERACIONES);
+    const mV = plan("q", "ascendientes", GENERACIONES, "A4", "portrait");
+    const mH = plan("q", "ascendientes", GENERACIONES, "A4", "landscape");
+    if (letraMinima(mV)!.pt >= LETRA_MINIMA_PT && letraMinima(mH)!.pt >= LETRA_MINIMA_PT) {
+      expect(m.paginas.length).toBe(Math.min(mV.paginas.length, mH.paginas.length));
+    }
   });
 
   it("con automática, si alguna orientación deja todo a 8 puntos, se usa una de esas", () => {
@@ -179,10 +192,17 @@ describe("PDF en páginas de continuación", () => {
   });
 
   it("en A3 caben más generaciones por página, y hacen falta menos páginas", () => {
-    const a4 = plan("r", "ascendientes", GENERACIONES);
-    const a3 = plan("r", "ascendientes", GENERACIONES, "A3");
+    const a4 = plan("r", "ascendientes", GENERACIONES, "A4", "landscape");
+    const a3 = plan("r", "ascendientes", GENERACIONES, "A3", "landscape");
     expect(a3.paginas[0].bloques[0].generaciones).toBeGreaterThan(a4.paginas[0].bloques[0].generaciones);
     expect(a3.paginas.length).toBeLessThan(a4.paginas.length);
+  });
+
+  it("el óvalo de los padres, solo en el bloque de la persona principal (05/11/2026)", () => {
+    const p = plan("r", "ascendientes", GENERACIONES);
+    const conOvalo = bloquesDe(p).filter(({ b }) => b.datos.ascendientes!.children?.[0]?.family);
+    expect(conOvalo.map(({ b }) => b.persona.handle)).toEqual(["r"]);
+    expect(bloquesDe(p).length).toBeGreaterThan(1);
   });
 
   it("una rama que llega por dos caminos es un solo bloque", () => {
@@ -262,10 +282,12 @@ describe("disposición vertical", () => {
     // en horizontal, de 230 × 90); 16 entre cajas vecinas y 40 entre
     // generaciones (vertical); 5 y 60 en horizontal. Más 4 a la izquierda: la
     // franja del sexo.
-    expect(measureTreeChart(g.ascendientes, null, "vertical")).toMatchObject({ width: 4 * 190 + 3 * 16 + 4, height: 3 * 84 + 2 * 40 });
-    expect(measureTreeChart(g.ascendientes, null, "horizontal")).toMatchObject({ width: 3 * 230 + 2 * 60 + 4, height: 4 * 90 + 3 * 5 });
+    // Entre la persona central y sus padres, la fila de su óvalo (46 de alto
+    // en vertical, 170 de ancho en horizontal; 05/11/2026).
+    expect(measureTreeChart(g.ascendientes, null, "vertical")).toMatchObject({ width: 4 * 190 + 3 * 16 + 4, height: 3 * 84 + 46 + 3 * 40 });
+    expect(measureTreeChart(g.ascendientes, null, "horizontal")).toMatchObject({ width: 3 * 230 + 170 + 3 * 60 + 4, height: 4 * 90 + 3 * 5 });
     // La esquina: la persona central, en (0, 0), abajo en el centro.
-    expect(measureTreeChart(g.ascendientes, null, "vertical")).toMatchObject({ x0: -(4 * 190 + 3 * 16) / 2 - 4, y0: -(2 * 84 + 2 * 40 + 42) });
+    expect(measureTreeChart(g.ascendientes, null, "vertical")).toMatchObject({ x0: -(4 * 190 + 3 * 16) / 2 - 4, y0: -(2 * 84 + 46 + 3 * 40 + 42) });
     // «Ambos»: los descendientes, debajo (óvalos de la boda de 46 de alto).
     const a = construirGrafico(arbol, arbol.persona("m")!, "ambos", 2, ABREV);
     expect(measureTreeChart(a.ascendientes, a.descendientes, "vertical").height).toBe(84 + 40 + 46 + 40 + 84);
@@ -276,8 +298,8 @@ describe("disposición vertical", () => {
     // Una foto en la fila de los padres: sus dos cajas, de 146 de alto; las
     // demás filas, sin fotos, de 84.
     const asc = structuredClone(g.ascendientes!);
-    asc.children![0].person!.photo = { handle: "foto", rect: null };
-    expect(measureTreeChart(asc, null, "vertical").height).toBe(84 + 146 + 84 + 2 * 40);
+    asc.children![0].children![0].person!.photo = { handle: "foto", rect: null };
+    expect(measureTreeChart(asc, null, "vertical").height).toBe(84 + 146 + 46 + 84 + 3 * 40);
     const altos = (t: TreeNode | null, d: TreeNode | null) => {
       const filas = new Map<number, Set<number>>();
       for (const r of treeChartShapes(t, d, "vertical", false).rects) {
@@ -287,14 +309,14 @@ describe("disposición vertical", () => {
       return filas;
     };
     const filas = altos(asc, null);
-    expect([...filas.values()].map((x) => [...x])).toEqual([[84], [146], [84]]);
+    expect([...filas.values()].map((x) => [...x])).toEqual([[84], [146], [84], [46]]);
     // La foto de un cónyuge cuenta en la fila de la persona; la fila de la
     // persona central, en las dos mitades.
     const p = construirGrafico(arbol, arbol.persona("pablo")!, "descendientes", 2, ABREV);
     const desc = structuredClone(p.descendientes!);
     desc.children![1].family!.spouse!.photo = { handle: "foto", rect: null };
     expect([...altos(g.ascendientes, desc).get(0)!]).toEqual([146]);
-    expect(measureTreeChart(g.ascendientes, desc, "vertical").height).toBe(2 * 84 + 146 + 46 + 84 + 4 * 40);
+    expect(measureTreeChart(g.ascendientes, desc, "vertical").height).toBe(2 * 84 + 146 + 2 * 46 + 84 + 5 * 40);
   });
 
   /** Centros, a lo ancho, de las cajas de la fila de la persona, de los
@@ -582,10 +604,10 @@ describe("PDF sin subtítulo o sin pie: su sitio es para el árbol (decisión de
     });
 
   it("en una página, la composición es la de la página sin esos textos", () => {
-    const p = conEspacio("r", "ascendientes", 3, NADA, "portrait");
+    const p = conEspacio("r", "ascendientes", 3, NADA, "landscape");
     expect(p.paginas).toHaveLength(1);
-    expect(p.paginas[0].composicion).toEqual(componer(p.paginas[0].bloques.map((b) => b.tamano), false, "A4", "portrait", NADA));
-    expect(p.paginas[0].composicion.pt).toBeGreaterThanOrEqual(conEspacio("r", "ascendientes", 3, ESPACIO_COMPLETO, "portrait").paginas[0].composicion.pt);
+    expect(p.paginas[0].composicion).toEqual(componer(p.paginas[0].bloques.map((b) => b.tamano), false, "A4", "landscape", NADA));
+    expect(p.paginas[0].composicion.pt).toBeGreaterThanOrEqual(conEspacio("r", "ascendientes", 3, ESPACIO_COMPLETO, "landscape").paginas[0].composicion.pt);
     // Y sin pie escrito, la página no lleva pie.
     expect(textosPlan(arbol, p, arbol.persona("r")!, "ascendientes", "", 0, true, "Título", "")[0].pie).toBe("");
   });

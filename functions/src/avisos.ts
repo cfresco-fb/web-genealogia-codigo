@@ -29,7 +29,7 @@ export const urlWeb = () => (process.env.URL_WEB ?? "http://localhost:5173").rep
 
 const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
-/** «Nombre Apellidos» de una persona de Gramps. */
+/** «Nombre “Apodo” Apellidos» de una persona de Gramps (como Arbol.nombre). */
 export function nombrePersona(p: ObjetoGramps | null): string {
   const n = p && esMapa(p.primary_name) ? p.primary_name : null;
   if (!n) return "";
@@ -37,7 +37,8 @@ export function nombrePersona(p: ObjetoGramps | null): string {
     .filter(esMapa)
     .flatMap((a) => [texto(a.prefix), texto(a.surname), texto(a.connector)])
     .filter(Boolean);
-  return [texto(n.first_name), ...apellidos].filter(Boolean).join(" ");
+  const apodo = texto(n.nick);
+  return [texto(n.first_name), apodo && `“${apodo}”`, ...apellidos].filter(Boolean).join(" ");
 }
 
 async function leer(db: Firestore, tipo: Tipo, handle: string | null | undefined): Promise<ObjetoGramps | null> {

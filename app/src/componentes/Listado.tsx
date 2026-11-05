@@ -6,6 +6,7 @@ import { useDeferredValue, useMemo, useState, type ReactNode } from "react";
 import { Button, Checkbox, Group, Popover, Stack, Text, TextInput, Title } from "@mantine/core";
 import { DataTable, type ColumnaTabla, type OrdenTabla } from "../gramps-connect/tabla/DataTable";
 import { normalizar } from "../arbol/arbol";
+import { anchoPorTexto } from "./anchoColumna";
 import { comparador, t } from "../i18n";
 
 export interface ColumnaLista<T> extends Omit<ColumnaTabla<T>, "ordenable"> {
@@ -16,6 +17,9 @@ export interface ColumnaLista<T> extends Omit<ColumnaTabla<T>, "ordenable"> {
   /** Siempre visible, al final y fuera de la elección de columnas (los
    * botones de cada fila, como «Editar»). */
   siempre?: boolean;
+  /** Columna de nombres de persona: el ancho inicial sale del texto más largo
+   * (de `valor`), con `ancho` como mínimo. El que arrastre el usuario manda. */
+  anchoPorTexto?: boolean;
 }
 
 interface ListadoProps<T> {
@@ -65,6 +69,11 @@ export function Listado<T>(props: ListadoProps<T>) {
     () => leerColumnas(clave) ?? columnas.filter((c) => c.visible !== false).map((c) => c.clave),
   );
 
+  // Una vez, al montar la lista, con todas las filas: no cambia al filtrar.
+  const [anchosPorTexto] = useState(() => new Map(columnas.filter((c) => c.anchoPorTexto).map((c) => [
+    c.clave, anchoPorTexto(filas.map((f) => String(c.valor?.(f) ?? "")), c.ancho ?? 0),
+  ])));
+
   // Solo depende de las filas: «texto» suele ser una función nueva en cada
   // pintado y no cambia de comportamiento.
   const textos = useMemo(() => new Map(filas.map((f) => [f, normalizar(texto(f))])), [filas]);
@@ -90,7 +99,7 @@ export function Listado<T>(props: ListadoProps<T>) {
 
   const columnasVisibles = columnas
     .filter((c) => visibles.includes(c.clave) || c.siempre)
-    .map((c): ColumnaTabla<T> => ({ ...c, ordenable: !!c.valor }));
+    .map((c): ColumnaTabla<T> => ({ ...c, ancho: anchosPorTexto.get(c.clave) ?? c.ancho, ordenable: !!c.valor }));
 
   function cambiarColumnas(nuevas: string[]) {
     // Conservar el orden de definición y al menos una columna.

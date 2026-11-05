@@ -7,10 +7,12 @@
 // un ViewStore con caché SQLite; sin selección múltiple ni navegación con
 // flechas; un clic en una fila llama a alPulsar; anchos de columna por
 // clave en localStorage; textos traducidos fuera de aquí. MODIFICADO el
-// 24/10/2026: filas de 34 px («Diseño visual»).
+// 24/10/2026: filas de 34 px («Diseño visual»). MODIFICADO el 05/11/2026: línea
+// visible en el asa de cambiar el ancho, con su texto emergente.
 
 import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { t } from "../../i18n";
 import classes from "./DataTable.module.css";
 
 const ROW_HEIGHT = 34;
@@ -150,6 +152,7 @@ export function DataTable<T>({ claveVista, columnas, filas, claveFila, orden, al
               {isSorted && <span className={classes.sortArrow}>{orden.direccion === "asc" ? "▲" : "▼"}</span>}
               <div
                 className={classes.resizeHandle}
+                title={t("lista.cambiarAncho")}
                 onClick={(e) => e.stopPropagation()}
                 onPointerDown={(e) => startResize(e, index)}
               />

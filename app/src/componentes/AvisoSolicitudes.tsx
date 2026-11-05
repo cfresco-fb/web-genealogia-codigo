@@ -6,8 +6,8 @@
 // - Arriba, un aviso con cada solicitud y lo que pide, línea a línea.
 // - Dentro de la ficha, lo pedido en su sitio, en cursiva y con la marca
 //   «Pendiente» (que lleva a la solicitud): los eventos nuevos, cambiados o
-//   que se quitan; en la persona, el nombre, el apodo, el sexo y los otros
-//   nombres; en la familia, el padre, la madre y los hijos.
+//   que se quitan; en la persona, el nombre (con el apodo), el sexo y los
+//   otros nombres; en la familia, el padre, la madre y los hijos.
 //
 // Una solicitud toca la ficha si cambia o borra la ficha misma, o uno de
 // sus eventos, notas o fotos.

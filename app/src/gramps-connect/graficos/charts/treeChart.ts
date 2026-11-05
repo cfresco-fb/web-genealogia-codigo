@@ -27,8 +27,8 @@
 //   conoce, y el tipo de relación de pareja (divorcio, separación, pareja
 //   sin casar; los padres sin relación de pareja, sin óvalo);
 // - cajas como en Gramps: en vertical, la foto arriba y centrada y, debajo,
-//   «Apellidos, Nombre» en negrita (hasta dos líneas), el nacimiento y la
-//   defunción; en horizontal, la foto (algo más pequeña) a la izquierda;
+//   el nombre y los apellidos en negrita, cada uno en su línea (05/11/2026),
+//   el nacimiento y la defunción; en horizontal, la foto (algo más pequeña) a la izquierda;
 //   todas las cajas del mismo tamaño;
 // - «continúa en la pág. N» junto a las cajas del borde, en los PDF de
 //   varias páginas;
@@ -44,7 +44,11 @@
 //   app/src/tema/colores.ts), que cambian solas con el modo de color, sin
 //   volver a dibujar; franja de sexo de 6 px por dentro de la caja (gris
 //   para el sexo desconocido); persona central con borde teja y sombra;
-//   líneas de 1,5 px; datos de las cajas a 12, sin nada por debajo.
+//   líneas de 1,5 px; datos de las cajas a 12, sin nada por debajo;
+// - MODIFICADO el 05/11/2026: también en la mitad de ascendientes, el óvalo de
+//   los padres de la persona central (TreeFamily.parents), en una fila propia;
+//   tercera línea del nombre solo en las filas que la necesitan
+//   (needsThirdLine).
 
 // Port of gramps-web's ../../../gramps-web/src/charts/TreeChart.js
 // (TreeChartCore/TreeChart) -- d3-hierarchy for layout, d3-shape for the
@@ -92,13 +96,11 @@ export interface TreePerson {
   /** Sexo con los valores de Gramps (0 mujer, 1 hombre, 2 desconocido, 3 otro). */
   gender: number;
   nameSurname: string;
+  /** Nombre de pila, con el apodo y el sufijo (decisión del 05/11/2026). */
   nameGiven: string;
-  /** Apodo, ya entre comillas: en su propia línea, bajo el nombre
-   * (decisión del 27/10/2026). */
-  nick?: string;
   /** ID de Gramps, detrás del nombre (solo para el administrador). */
   grampsId?: string;
-  /** ID de Gramps en su propia línea, bajo el nombre y el apodo (PDF con
+  /** ID de Gramps en su propia línea, bajo el nombre (PDF con
    * «Incluir identificadores», decisión del 30/10/2026). */
   idLine?: string;
   /** Líneas de fecha y lugar ya formateadas, con su símbolo («n.», «*»…).
@@ -119,12 +121,17 @@ export interface TreePerson {
 
 /** Familia del lado de descendientes, como en Gramps: el cónyuge en su
  * propia caja, al lado de la persona, y debajo de los dos (a la derecha, en
- * horizontal) un óvalo con la boda, del que cuelgan los hijos. */
+ * horizontal) un óvalo con la boda, del que cuelgan los hijos. Del lado de
+ * ascendientes (`parents`), los padres de la persona central: el óvalo
+ * entre ella y ellos. */
 export interface TreeFamily {
   handle: string;
   /** Cónyuge, o null si no se conoce (se dibuja una caja de «Cónyuge
-   * desconocido»). */
+   * desconocido», salvo con `parents`). */
   spouse: TreePerson | null;
+  /** El óvalo de los padres: sin caja de cónyuge, y sus `children` son el
+   * padre y la madre, los que se conozcan (05/11/2026). */
+  parents?: boolean;
   /** Líneas del óvalo, ya preparadas («matr. …», «casados», «Pareja»,
    * «div. …»…); sin ninguna, un óvalo pequeño que solo une. */
   lines: TreeLine[];
@@ -198,11 +205,11 @@ function conMedidas<T>(compact: boolean | undefined, fn: () => T): T {
 }
 /** En vertical, lo que ocupa la foto por encima del nombre. */
 const PHOTO_ROOM = 62;
-/** Lo que ocupa la línea del apodo (decisión del 27/10/2026) o la del ID
- * (30/10/2026): cada línea extra bajo el nombre. */
-const nickRoom = () => (M.compact ? 15 : 16);
-/** Medidas de las cajas de una fila, con foto o sin ninguna, y con la línea
- * del apodo o sin ella. */
+/** Lo que ocupa cada línea de más en una caja: la tercera del nombre
+ * (05/11/2026) o la del ID bajo el nombre (30/10/2026). */
+const lineRoom = () => (M.compact ? 15 : 16);
+/** Medidas de las cajas de una fila, con foto o sin ninguna, y con líneas de
+ * más o sin ellas. */
 /** Lo que ocupan las líneas de nacimiento y defunción: en una fila en la
  * que ninguna caja las lleva (las de la pareja que se repite encima de cada
  * tramo de hijos en el PDF, solo con el nombre), las cajas son más bajas
@@ -210,7 +217,7 @@ const nickRoom = () => (M.compact ? 15 : 16);
 const dataRoom = () => (M.compact ? 29 : 34);
 function boxSize(layout: ChartLayout, photoRow: boolean, extraLines = 0, bareRow = false): { w: number; h: number } {
   const base = M.compact ? M.box[layout] : layout === "vertical" && !photoRow ? { w: M.box.vertical.w, h: M.box.vertical.h - PHOTO_ROOM } : M.box[layout];
-  return { w: base.w, h: base.h + extraLines * nickRoom() - (bareRow ? dataRoom() : 0) };
+  return { w: base.w, h: base.h + extraLines * lineRoom() - (bareRow ? dataRoom() : 0) };
 }
 /** Óvalo de la pareja: con una o dos líneas, OVAL; más alto con más
  * (OVAL_LINE cada una); sin ninguna, uno pequeño que solo une. */
@@ -299,35 +306,42 @@ function longestCut(base: string, min: number, fits: (text: string) => boolean):
   return best;
 }
 
-/** El nombre en varias líneas (data-wrap="1", "2"… en la misma caja; dos,
- * o tres en horizontal con foto): entero en la primera si cabe; si no,
- * partido por palabras (o, con una palabra más larga que la línea, por
- * letras) y, si ni así cabe, la última recortada con «…». data-suffix (el
- * ID de Gramps) va siempre entero al final. */
-function fitName(lines: SVGTextElement[]): void {
-  const full = lines[0].getAttribute("data-full") ?? "";
-  const suffix = lines[0].getAttribute("data-suffix") ?? "";
-  const fits = (el: SVGTextElement, text: string) => {
-    el.textContent = text;
-    return el.getComputedTextLength() <= Number(el.getAttribute("data-max"));
-  };
-  for (const el of lines) el.textContent = "";
+/** Las palabras de un nombre; el apodo, entre comillas, es una sola aunque
+ * tenga varias: no se parte. */
+const nameWords = (text: string) => text.match(/“[^”]*”|\S+/g) ?? [];
+
+/** ¿Cabe este texto en esta línea? Lo deja escrito en ella. */
+function fitsLine(el: SVGTextElement, text: string): boolean {
+  el.textContent = text;
+  return el.getComputedTextLength() <= Number(el.getAttribute("data-max"));
+}
+
+/** Un texto en una o más líneas: entero en la primera si cabe; si no, partido
+ * por palabras (o, con una palabra más larga que la línea, por letras) y, si
+ * ni así cabe, la última recortada con «…». `suffix` (el ID de Gramps) va
+ * siempre entero al final. */
+function fillLines(lines: SVGTextElement[], full: string, suffix: string): void {
   let rest = full;
   for (const [i, el] of lines.entries()) {
-    if (fits(el, (rest + suffix).trim())) return;
+    if (fitsLine(el, (rest + suffix).trim())) return;
     if (i === lines.length - 1) {
-      const best = longestCut(rest, 0, (text) => fits(el, text + suffix));
+      const best = longestCut(rest, 0, (text) => fitsLine(el, text + suffix));
       el.textContent = (best ?? "…") + suffix;
       return;
     }
-    if (fits(el, rest)) {
+    if (fitsLine(el, rest)) {
       rest = "";
       continue;
     }
-    const words = rest.split(" ");
+    const words = nameWords(rest);
     let k = words.length - 1;
-    while (k > 0 && !fits(el, words.slice(0, k).join(" "))) k--;
+    while (k > 0 && !fitsLine(el, words.slice(0, k).join(" "))) k--;
     let n: number;
+    if (k === 0 && words[0]?.startsWith("“")) {
+      // Ni el apodo solo cabe en la línea: recortado, no partido.
+      el.textContent = longestCut(rest, 0, (text) => fitsLine(el, text)) ?? "…";
+      return;
+    }
     if (k > 0) {
       n = words.slice(0, k).join(" ").length;
     } else {
@@ -336,7 +350,7 @@ function fitName(lines: SVGTextElement[]): void {
       n = 1;
       while (lo <= hi) {
         const mid = Math.floor((lo + hi) / 2);
-        if (fits(el, rest.slice(0, mid))) {
+        if (fitsLine(el, rest.slice(0, mid))) {
           n = mid;
           lo = mid + 1;
         } else {
@@ -347,6 +361,31 @@ function fitName(lines: SVGTextElement[]): void {
     el.textContent = rest.slice(0, n);
     rest = rest.slice(n).trim();
   }
+}
+
+/** El nombre de una caja (data-wrap="1", "2"… en la misma caja; dos líneas o,
+ * con un nombre de pila largo o en horizontal con foto, tres). Nombre de pila
+ * (data-full) y apellidos (data-full2), con salto forzado entre los dos. Con
+ * tres líneas, el nombre de pila que no cabe ocupa dos, por palabras
+ * (05/11/2026). Lo que ni así cabe, recortado con «…». Los apellidos, en su
+ * línea; con foto en horizontal (data-surname-wrap), si el nombre de pila ocupa
+ * solo una, pueden ocupar dos. El ID (data-suffix), detrás de los apellidos.
+ * Sin apellidos separados («Cónyuge desconocido»), el texto en todas las
+ * líneas. */
+export function fitName(lines: SVGTextElement[]): void {
+  const full = lines[0].getAttribute("data-full") ?? "";
+  const second = lines[0].getAttribute("data-full2");
+  const suffix = lines[0].getAttribute("data-suffix") ?? "";
+  for (const el of lines) el.textContent = "";
+  if (second === null) {
+    fillLines(lines, full, suffix);
+    return;
+  }
+  const firstLines = lines.length > 2 && !fitsLine(lines[0], full) ? 2 : 1;
+  lines[0].textContent = "";
+  fillLines(lines.slice(0, firstLines), full, "");
+  const wrapSurname = firstLines === 1 && lines[0].getAttribute("data-surname-wrap") !== null;
+  fillLines(lines.slice(firstLines, wrapSurname ? undefined : firstLines + 1), second, suffix);
 }
 
 /** Recorta los textos que no caben en su caja (atributo data-max, en
@@ -441,18 +480,66 @@ function photoDepths(data: TreeNode | null): Set<number> {
   return out;
 }
 
-/** Líneas extra bajo el nombre (apodo e ID) de una caja. */
-const extraLinesOf = (p: TreePerson | null | undefined) => (p?.nick ? 1 : 0) + (p?.idLine ? 1 : 0);
+/** Ancho del texto de una caja: en horizontal, a la derecha de la foto si la
+ * hay. */
+const textWidthOf = (layout: ChartLayout, image: boolean) => (layout === "horizontal"
+  ? M.box[layout].w - (image ? IMG_SIZE + 2 * IMG_PADDING : 2 * TEXT_PADDING) - 8
+  : M.box[layout].w - 2 * TEXT_PADDING);
+/** Lo que la primera línea deja al botón de ficha, de la esquina superior
+ * derecha: en horizontal, por la derecha; en vertical, en una fila sin fotos
+ * (el nombre arriba del todo, centrado), por los dos lados. */
+const linkRoomOf = (layout: ChartLayout, photoRow: boolean) =>
+  (layout === "horizontal" ? 2 * LINK_R : photoRow ? 0 : 2 * (2 * LINK_R + 8) - 2 * TEXT_PADDING);
 
-/** Generaciones de una mitad en las que alguna caja lleva líneas bajo el
- * nombre (apodo, ID), con las que lleva la que más. */
-function extraDepths(data: TreeNode | null): Map<number, number> {
+/** Ancho de cada letra del nombre (Noto Sans de 13 px, en negrita de 600,
+ * medido en el navegador el 05/11/2026): el alto de las filas se decide antes
+ * de dibujar y sin el navegador, también al repartir las páginas del PDF. Las
+ * letras con acento, como la suya sin él. */
+const NAME_WIDTHS = new Map<string, number>(([
+  [2.1, "’"], [2.7, "'"], [3.4, " "], [3.6, ".,"], [3.7, "ijl"], [4, "J"], [4.2, "()-"],
+  [4.3, "[]"], [4.8, "fI”"], [5, "“"], [5.3, "t"], [5.4, "\""], [5.6, "r"], [6.3, "z"], [6.4, "s"],
+  [6.5, "c"], [6.8, "T"], [7, "F"], [7.1, "vyL"], [7.2, "S"], [7.3, "xE"], [7.4, "0123456789"],
+  [7.5, "YZ"], [7.6, "aek"], [8, "oP"], [8.1, "bdgpqV"], [8.3, "hnuCX"], [8.4, "KR"], [8.6, "B"],
+  [8.7, "A"], [9.4, "G"], [9.5, "D"], [9.7, "U"], [9.8, "H"], [10.2, "OQ"], [10.3, "N"],
+  [10.8, "w"], [12.1, "M"], [12.3, "W"], [12.5, "m"],
+] as [number, string][]).flatMap(([w, letters]) => [...letters].map((c): [string, number] => [c, w])));
+/** Otras letras, sin medir: las de otras escrituras y las de los ideogramas. */
+const NAME_WIDTH_OTHER = 9;
+const NAME_WIDTH_IDEOGRAM = 13;
+/** Un 3 % de más (sumar letra a letra se queda hasta un 2,7 % corto en los dos
+ * árboles, de ejemplo y real): mejor una línea en blanco que el apodo
+ * recortado. Al dibujar, fitName mide de verdad. */
+const NAME_WIDTH_MARGIN = 1.03;
+const nameWidth = (text: string) => NAME_WIDTH_MARGIN * [...text.normalize("NFD").replace(/[\u0300-\u036f]/g, "")].reduce(
+  (sum, c) => sum + (NAME_WIDTHS.get(c) ?? (c.codePointAt(0)! >= 0x2e80 ? NAME_WIDTH_IDEOGRAM : NAME_WIDTH_OTHER)), 0,
+);
+
+/** El nombre de pila de esta caja necesita dos líneas (con más de una palabra:
+ * una sola no se parte), y por tanto los apellidos, la tercera. En horizontal
+ * con foto, ya tiene tres. */
+function needsThirdLine(p: TreePerson, layout: ChartLayout, photoRow: boolean): boolean {
+  if (layout === "horizontal" && p.photo) return false;
+  const room = textWidthOf(layout, false) - linkRoomOf(layout, photoRow);
+  return nameWidth(p.nameGiven) > room && nameWords(p.nameGiven).length > 1;
+}
+
+/** Líneas de más de una caja: la tercera del nombre y el ID. En horizontal,
+ * una columna con fotos ya tiene el hueco de la tercera. */
+const extraLinesOf = (p: TreePerson | null | undefined, layout: ChartLayout, photoRow: boolean) => {
+  if (!p) return 0;
+  const third = needsThirdLine(p, layout, photoRow) && !(layout === "horizontal" && photoRow);
+  return (third ? 1 : 0) + (p.idLine ? 1 : 0);
+};
+
+/** Generaciones de una mitad en las que alguna caja lleva líneas de más, con
+ * las que lleva la que más. */
+function extraDepths(data: TreeNode | null, layout: ChartLayout, photos: Set<number>): Map<number, number> {
   const out = new Map<number, number>();
   if (!data) return out;
   const add = (depth: number, n: number) => { if (n) out.set(depth, Math.max(out.get(depth) ?? 0, n)); };
   hierarchy(data, (d) => d.children).each((d) => {
-    add(d.depth, extraLinesOf(d.data.person));
-    add(d.depth - 1, extraLinesOf(d.data.family?.spouse));
+    add(d.depth, extraLinesOf(d.data.person, layout, photos.has(d.depth)));
+    add(d.depth - 1, extraLinesOf(d.data.family?.spouse, layout, photos.has(d.depth - 1)));
   });
   return out;
 }
@@ -470,8 +557,8 @@ function dataDepths(data: TreeNode | null): Set<number> {
   return out;
 }
 
-/** Filas de cada mitad: las que tienen foto, las líneas bajo el nombre
- * (apodo, ID) y las que tienen datos (sin ellos, cajas más bajas). La de la persona central es la misma en las dos (en la de
+/** Filas de cada mitad: las que tienen foto, las líneas de más (la tercera
+ * del nombre, el ID) y las que tienen datos (sin ellos, cajas más bajas). La de la persona central es la misma en las dos (en la de
  * descendientes, con sus cónyuges). En horizontal, las cajas de una
  * generación van una encima de otra con un paso fijo: todas llevan las
  * líneas de la que más lleva. */
@@ -489,8 +576,11 @@ function chartRows(ancestorTree: TreeNode | null, descendantTree: TreeNode | nul
     }
   };
   const photos = { ancestors: photoDepths(ancestorTree), descendants: photoDepths(descendantTree) };
-  const extras = { ancestors: extraDepths(ancestorTree), descendants: extraDepths(descendantTree) };
   shared(photos.ancestors, photos.descendants);
+  const extras = {
+    ancestors: extraDepths(ancestorTree, layout, photos.ancestors),
+    descendants: extraDepths(descendantTree, layout, photos.descendants),
+  };
   const central = Math.max(extras.ancestors.get(0) ?? 0, extras.descendants.get(0) ?? 0);
   if (central) {
     extras.ancestors.set(0, central);
@@ -518,21 +608,21 @@ function ovalRows(data: TreeNode, layout: ChartLayout): Map<number, number> {
   return out;
 }
 
-/** Tamaño de la generación `depth` a lo largo del eje de las generaciones.
- * En la mitad de descendientes se alternan personas (profundidad par) y
- * óvalos de familia (impar). */
-function columnExtent(depth: number, half: Half, layout: ChartLayout, rows: Rows, ovals: Map<number, number>): number {
-  const family = half === "descendants" && depth % 2 === 1;
-  return family ? ovals.get(depth) ?? along(M.oval, layout) : along(rowSize(layout, rows, depth), layout);
+/** Tamaño de la generación `depth` a lo largo del eje de las generaciones:
+ * el de sus óvalos, si es una fila de óvalos (en la mitad de descendientes se
+ * alternan con las personas; en la de ascendientes, solo el de los padres de
+ * la persona central), o el de sus cajas. */
+function columnExtent(depth: number, layout: ChartLayout, rows: Rows, ovals: Map<number, number>): number {
+  return ovals.get(depth) ?? along(rowSize(layout, rows, depth), layout);
 }
 
 /** Distancia, por el eje de las generaciones, entre el centro de la caja
  * central y el de la generación `depth`. */
-function columnCenter(depth: number, half: Half, layout: ChartLayout, rows: Rows, ovals: Map<number, number>): number {
+function columnCenter(depth: number, layout: ChartLayout, rows: Rows, ovals: Map<number, number>): number {
   const gap = layout === "horizontal" ? M.gapX : M.gapV;
   let c = 0;
   for (let i = 0; i < depth; i++) {
-    c += columnExtent(i, half, layout, rows, ovals) / 2 + gap + columnExtent(i + 1, half, layout, rows, ovals) / 2;
+    c += columnExtent(i, layout, rows, ovals) / 2 + gap + columnExtent(i + 1, layout, rows, ovals) / 2;
   }
   return c;
 }
@@ -540,7 +630,7 @@ function columnCenter(depth: number, half: Half, layout: ChartLayout, rows: Rows
 /** Caja de persona colocada: centro (px, py) en el SVG, con la persona
  * central en (0, 0). `key`, único en su mitad (recortes de las fotos). Alto
  * `h`, el de su fila; `photoRow`, si la fila lleva hueco para la foto, y
- * `extraLines`, cuántas líneas lleva bajo el nombre (apodo, ID). */
+ * `extraLines`, cuántas líneas de más lleva su fila (tercera del nombre, ID). */
 interface PlacedBox {
   key: string;
   person: TreePerson;
@@ -613,7 +703,8 @@ const unknownSpouse = (f: TreeFamily): TreePerson => ({
  * cada lado), para que se crucen las menos líneas posible; el óvalo de cada
  * familia, debajo (a la derecha, en horizontal), entre la persona y ese
  * cónyuge, y los hijos de la pareja, centrados bajo su óvalo si caben (si
- * no, apartados lo justo). */
+ * no, apartados lo justo). En la de ascendientes, el óvalo de los padres de
+ * la persona central, en línea con ella, y sus padres centrados sobre él. */
 function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows): HalfLayout {
   const horizontal = layout === "horizontal";
   const sign = sideSign(half);
@@ -622,7 +713,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
   const gapAcross = horizontal ? GAP_Y : GAP_B;
   const step = boxAcross + gapAcross;
   const ovals = ovalRows(data, layout);
-  const center = (depth: number) => columnCenter(depth, half, layout, rows, ovals);
+  const center = (depth: number) => columnCenter(depth, layout, rows, ovals);
 
   /** Posición a lo ancho de cada nodo respecto a la de su padre en el
    * árbol (una familia, respecto a la persona; un hijo, respecto al óvalo de
@@ -661,6 +752,17 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     const c: Contour = { l: [-boxAcross / 2], r: [boxAcross / 2] };
     const children = n.children ?? [];
     const families = children.filter((ch) => ch.family);
+    const parentsOval = families.find((ch) => ch.family!.parents);
+    if (parentsOval) {
+      const [l, r] = ovalAcross(parentsOval.family!, layout);
+      rel.set(parentsOval, 0);
+      mergeContour(c, { l: [l], r: [r] }, 0, 1);
+      const parents = parentsOval.children ?? [];
+      const row = siblings(parents);
+      mergeContour(c, row.c, 0, 2);
+      parents.forEach((ch, j) => rel.set(ch, row.off[j]));
+      return c;
+    }
     if (!families.length) {
       const parents = children.filter((ch) => ch.person);
       if (parents.length) {
@@ -724,6 +826,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
         ? { x0: px - alongHalf, x1: px + alongHalf, y0: py + l, y1: py + r }
         : { x0: px + l, x1: px + r, y0: py - alongHalf, y1: py + alongHalf };
       out.ovals.push({ key: d.data.id, family, px, py, w: size.w, h: size.h, bounds });
+      if (family.parents) continue;
       // El cónyuge, en la fila de la persona.
       const parent = d.parent!;
       const [sx, sy] = point(sign * center(parent.depth), acrossOf.get(parent.data)! + spouseRel.get(family)!);
@@ -756,7 +859,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
       // De la persona y de su cónyuge al óvalo de su familia.
       const target = point(dal - sign * (along(ovalSize(family), layout) / 2 - 1), acrossOf.get(d.data)!);
       out.links.push({ source: boxEdge(parent.depth, pal, pac, sign), target });
-      out.links.push({ source: boxEdge(parent.depth, pal, pac + spouseRel.get(family)!, sign), target });
+      if (!family.parents) out.links.push({ source: boxEdge(parent.depth, pal, pac + spouseRel.get(family)!, sign), target });
       continue;
     }
     const target = boxEdge(d.depth, dal, acrossOf.get(d.data)!, -sign);
@@ -863,7 +966,7 @@ function treeChartCore(
     .join("path")
     .attr("d", (l) => link(horizontal ? curveBumpX : curveBumpY)(l));
 
-  // ---- Óvalos de familia (solo del lado de descendientes) ----
+  // ---- Óvalos de familia ----
 
   const oval = chart
     .append("g")
@@ -1006,48 +1109,48 @@ function treeChartCore(
   // El texto: en vertical, centrado bajo la foto (o su hueco), a todo el
   // ancho; en horizontal, a la derecha de la foto si la hay (per-node, since
   // only some boxes in a tree have one). La primera línea no llega al botón
-  // de ficha de la esquina superior derecha: en horizontal, se acorta por la
-  // derecha; en vertical, en una fila sin fotos (el nombre arriba del todo,
-  // centrado), por los dos lados.
+  // de ficha (linkRoomOf).
   const hasImage = (d: PlacedBox) => !!d.person.photo;
   const textPadding = (d: PlacedBox) => (hasImage(d) ? IMG_SIZE + 2 * IMG_PADDING : 2 * TEXT_PADDING);
-  const textWidth = (d: PlacedBox) => (horizontal ? BOX_WIDTH - textPadding(d) - 8 : BOX_WIDTH - 2 * TEXT_PADDING);
+  const textWidth = (d: PlacedBox) => textWidthOf(layout, hasImage(d));
   const textX = (d: PlacedBox) => (horizontal ? -BOX_WIDTH / 2 + textPadding(d) : 0);
   const anchor = horizontal ? "start" : "middle";
-  const linkRoom = (d: PlacedBox) => (horizontal ? 2 * LINK_R : d.photoRow ? 0 : 2 * (2 * LINK_R + 8) - 2 * TEXT_PADDING);
-  // Líneas de base, en huecos fijos: el nombre (dos líneas; en horizontal,
-  // en las columnas con alguna foto, tres, aunque la tercera solo la usan
-  // las cajas con foto, más estrechas), el apodo (en las filas con alguno),
-  // el nacimiento y la defunción. En vertical, debajo de la foto, o arriba
+  const linkRoom = (d: PlacedBox) => linkRoomOf(layout, d.photoRow);
+  // Líneas de base, en huecos fijos: el nombre (dos líneas y la tercera, en
+  // las filas que la necesitan o, en horizontal, en las columnas con alguna
+  // foto, aunque solo la usan las cajas que la necesitan y las de foto, más
+  // estrechas), el ID (en las filas con alguno), el nacimiento y la defunción. En vertical, debajo de la foto, o arriba
   // del todo en una fila sin fotos.
   const rows = (d: PlacedBox) => {
-    const room = d.extraLines * nickRoom();
-    const linea = (name: number[], nick: number, birth: number, death: number) =>
-      ({ name, nick, birth: birth + room, death: death + room });
+    const room = d.extraLines * lineRoom();
+    // El ID, justo encima del nacimiento: debajo de la tercera línea, si la hay.
+    const linea = (name: number[], id: number, birth: number, death: number) =>
+      ({ name, id: id + Math.max(0, room - lineRoom()), birth: birth + room, death: death + room });
     if (horizontal) {
       const top = -bh(d) / 2;
-      if (M.compact) return linea([top + 18, top + 33], top + 48, top + 48, top + 63);
+      if (M.compact) return linea([top + 18, top + 33, top + 48], top + 48, top + 48, top + 63);
       return d.photoRow
         ? linea([top + 19, top + 34, top + 49], top + 64, top + 65, top + 80)
-        : linea([top + 25, top + 42], top + 59, top + 59, top + 76);
+        : linea([top + 25, top + 42, top + 59], top + 59, top + 59, top + 76);
     }
     if (M.compact) {
       const top = -bh(d) / 2 + 17;
-      return linea([top, top + 14], top + 29, top + 29, top + 43);
+      return linea([top, top + 14, top + 28], top + 29, top + 29, top + 43);
     }
     const top = -bh(d) / 2 + (d.photoRow ? 25 + PHOTO_ROOM : 25);
-    return linea([top, top + 16], top + 33, top + 34, top + 50);
+    return linea([top, top + 16, top + 32], top + 33, top + 34, top + 50);
   };
 
-  // «Apellidos, Nombre» en negrita, hasta dos líneas (tres en horizontal con
-  // foto; fitTexts), con el ID detrás para el administrador. Sin apellidos o
-  // sin nombre de pila, el rótulo de que falta (en Gramps Connect, «…», que
-  // parece un texto cortado). Un cónyuge desconocido, «Cónyuge
-  // desconocido», sin negrita.
-  const fullName = (d: PlacedBox) =>
-    d.unknown ? labels.unknownSpouse : `${d.person.nameSurname || labels.noSurname}, ${d.person.nameGiven || labels.noGivenName}`;
+  // El nombre de pila (con el apodo) y los apellidos en negrita, cada uno en
+  // su línea; si el de pila no cabe, en dos, y los apellidos en la tercera
+  // (05/11/2026; fitTexts), con el ID detrás para el administrador.
+  // Sin apellidos o sin nombre de pila, el rótulo de que falta (en Gramps
+  // Connect, «…», que parece un texto cortado). Un cónyuge desconocido,
+  // «Cónyuge desconocido», sin negrita.
+  const givenLine = (d: PlacedBox) => (d.unknown ? labels.unknownSpouse : d.person.nameGiven || labels.noGivenName);
+  const surnameLine = (d: PlacedBox) => (d.unknown ? null : d.person.nameSurname || labels.noSurname);
   const suffix = (d: PlacedBox) => (d.person.grampsId ? ` [${d.person.grampsId}]` : "");
-  const nameLines = (d: PlacedBox) => (horizontal && hasImage(d) ? 3 : 2);
+  const nameLines = (d: PlacedBox) => ((horizontal && hasImage(d)) || needsThirdLine(d.person, layout, d.photoRow) ? 3 : 2);
   for (const i of [0, 1, 2]) {
     node
       .filter((d) => i < nameLines(d))
@@ -1059,27 +1162,18 @@ function treeChartCore(
       .attr("fill", (d) => color(d.unknown ? "tinta-suave" : "tinta"))
       .attr("data-wrap", String(i + 1))
       .attr("data-max", (d) => (i === 0 ? textWidth(d) - linkRoom(d) : textWidth(d)))
-      .attr("data-full", (d) => (i === 0 ? fullName(d) : null))
+      .attr("data-full", (d) => (i === 0 ? givenLine(d) : null))
+      .attr("data-full2", (d) => (i === 0 ? surnameLine(d) : null))
+      .attr("data-surname-wrap", (d) => (i === 0 && horizontal && hasImage(d) ? "" : null))
       .attr("data-suffix", (d) => (i === 0 ? suffix(d) || null : null))
-      .text((d) => (i === 0 ? fullName(d) + suffix(d) : ""));
+      .text((d) => (i === 0 ? givenLine(d) + suffix(d) : ""));
   }
 
-  // El apodo, en su línea (sin negrita), recortado con «…» si no cabe.
-  node
-    .filter((d) => !!d.person.nick)
-    .append("text")
-    .attr("y", (d) => rows(d).nick)
-    .attr("x", textX)
-    .attr("text-anchor", anchor)
-    .attr("fill", color("tinta"))
-    .call(lineAttrs, (d: PlacedBox) => ({ text: d.person.nick!, keep: 0, short: "", keepShort: 0 }), textWidth);
-
-  // El ID, si va en su línea (PDF con «Incluir identificadores»), bajo el
-  // apodo.
+  // El ID, si va en su línea (PDF con «Incluir identificadores»).
   node
     .filter((d) => !!d.person.idLine)
     .append("text")
-    .attr("y", (d) => rows(d).nick + (d.person.nick ? nickRoom() : 0))
+    .attr("y", (d) => rows(d).id)
     .attr("x", textX)
     .attr("text-anchor", anchor)
     .attr("font-size", DATA_FONT_SIZE)

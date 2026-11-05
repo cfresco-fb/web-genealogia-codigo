@@ -478,8 +478,6 @@ class Redactor {
       this.fotos(p);
       const salida: Trozo[] = [];
       // «Conocido como “Juancho”.», antes del nacimiento (27/10/2026).
-      const apodo = this.a.apodo(p);
-      if (apodo) salida.push({ texto: t(`libro.frase.apodo.${genero(p)}` as Clave, { apodo }) });
       const mostrados = this.vitales(p, null, salida);
       this.padres(p, salida);
       this.texto(salida);

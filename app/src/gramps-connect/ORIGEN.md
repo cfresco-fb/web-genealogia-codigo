@@ -50,7 +50,10 @@ tabla virtualizada de los listados.
   - colores del tema de Mantine estándar en lugar de los propios de
     Gramps Connect (`grampsBlue`, `selection`); desde el 24/10/2026
     («Diseño visual»), los del tema de la web (`--tema-…`, en los dos
-    modos), filas de 34 px y letra de 15 px (cabecera, 14).
+    modos), filas de 34 px y letra de 15 px (cabecera, 14);
+  - asa de cambiar el ancho (05/11/2026): con una línea visible entre las
+    columnas de la cabecera y su texto emergente, y por dentro de la celda
+    (a `right: -3px`, la celda recortaba media asa).
 
 ## `graficos/`
 
@@ -134,8 +137,10 @@ de `app/src/charts/` y `app/src/components/visuals/`:
     defunción (`TreeLine`: si no cabe, `fitTexts` recorta el lugar y, si ni
     así, deja la fecha sin el lugar o pasa al año), el ID de Gramps junto
     al nombre (`grampsId`, solo para el administrador; `fitTexts` no lo
-    recorta, `data-suffix`) y el nombre como «Apellidos, Nombre» en hasta
-    dos líneas (`fitName`); en vertical, el hueco de la foto solo en las
+    recorta, `data-suffix`) y el nombre en dos líneas (`fitName`; desde el
+    05/11/2026, el nombre de pila y los apellidos, con salto forzado, antes
+    «Apellidos, Nombre»; `needsThirdLine`, una tercera si el de pila no
+    cabe); en vertical, el hueco de la foto solo en las
     filas con alguna foto (`photoRows`; cajas de 190 × 146 o 190 × 84);
   - `measureTreeChart`: tamaño del árbol sin dibujarlo (con su
     disposición y su esquina), para repartirlo en páginas del PDF antes de
@@ -157,13 +162,15 @@ de `app/src/charts/` y `app/src/components/visuals/`:
     cajas, óvalos y huecos entre generaciones en un objeto (`Medidas`,
     normales o pequeñas) que fijan esas funciones mientras trabajan
     (`conMedidas`), y líneas más juntas en las cajas pequeñas;
-  - apodo en su propia línea (27/10/2026; `TreePerson.nick`): las filas
-    con algún apodo (`chartRows`, junto con las de foto) llevan cajas una
-    línea más altas; en horizontal, si hay alguno, todas;
-  - ID en su propia línea, bajo el apodo (30/10/2026; `TreePerson.idLine`,
+  - ID en su propia línea, bajo el nombre (30/10/2026; `TreePerson.idLine`,
     en los PDF con «Incluir identificadores»): las líneas bajo el nombre se
     cuentan por fila (`extraDepths`, `extraRows`), y cada una hace la caja
-    una línea más alta.
+    una línea más alta. El apodo, que tuvo su línea desde el 27/10/2026, va
+    desde el 05/11/2026 dentro del nombre de pila (sin `TreePerson.nick`);
+  - óvalo de los padres de la persona central (05/11/2026;
+    `TreeFamily.parents`): en `layoutHalf`, un óvalo sin caja de cónyuge en
+    la mitad de ascendientes, en su propia fila (`columnExtent` mira las filas
+    con óvalos en lugar de las impares de la mitad de descendientes).
 
 ## `chartExport/`
 

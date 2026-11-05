@@ -13,13 +13,11 @@ export type SeccionAjustes = "persona-inicio" | "generaciones" | "simbolos" | "r
 export const rutaAjustes = (seccion: SeccionAjustes) => `/ajustes#${seccion}`;
 
 /** Una línea discreta que dice que algo se elige en Ajustes, con el enlace a
- * su sección («… se eligen en Ajustes.»; Carlos, 04/11/2026). */
-export function AvisoAjustes({ texto, seccion, size = "sm" }: { texto: string; seccion: SeccionAjustes; size?: "xs" | "sm" }) {
-  return (
-    <Text size={size} c="dimmed">
-      {texto} <Anchor component={Link} to={rutaAjustes(seccion)} inherit>{t("ajustes.titulo")}</Anchor>.
-    </Text>
-  );
+ * su sección («… se eligen en Ajustes.»; Carlos, 04/11/2026). Con `enParrafo`,
+ * solo la frase, para ir dentro de otro párrafo (hereda su letra). */
+export function AvisoAjustes({ texto, seccion, enParrafo = false }: { texto: string; seccion: SeccionAjustes; enParrafo?: boolean }) {
+  const frase = <>{texto} <Anchor component={Link} to={rutaAjustes(seccion)} inherit>{t("ajustes.titulo")}</Anchor>.</>;
+  return enParrafo ? frase : <Text size="sm" c="dimmed">{frase}</Text>;
 }
 export const rutaFamilia = (handle: string) => `/familia/${handle}`;
 export const rutaLugar = (handle: string) => `/lugar/${handle}`;

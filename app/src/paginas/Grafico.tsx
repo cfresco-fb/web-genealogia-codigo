@@ -270,8 +270,9 @@ export function Grafico() {
           <Button variant="default" size="xs" h={34} onClick={() => grafico.current?.fit()}>{t("grafico.verTodo")}</Button>
         </Group>
       </Paper>
-      <Text size="xs" c="dimmed">{t("grafico.ayuda")}</Text>
-      <AvisoAjustes texto={t("avisoAjustes.arbol")} seccion="generaciones" size="xs" />
+      <Text size="xs" c="dimmed">
+        {t("grafico.ayuda")} <AvisoAjustes texto={t("avisoAjustes.arbol")} seccion="generaciones" enParrafo />
+      </Text>
       <ExportarPdf
         abierto={pdfAbierto}
         alCerrar={() => setPdfAbierto(false)}

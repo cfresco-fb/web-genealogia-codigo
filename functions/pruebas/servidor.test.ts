@@ -49,7 +49,7 @@ import { aplicarSolicitud, crearSolicitud, rechazarSolicitud, retirarSolicitud }
 import { revertir } from "../src/reversion.ts";
 import { aceptarCambio } from "../src/revision.ts";
 import { guardarInvitacion } from "../src/usuarios.ts";
-import { avisarSolicitud, type Mensaje } from "../src/avisos.ts";
+import { avisarSolicitud, nombrePersona, type Mensaje } from "../src/avisos.ts";
 import { enviarAniversarios } from "../src/aniversarios.ts";
 import { peticionBorrado } from "../../comun/borrado.ts";
 import { leerIndice, RUTA_CONTADORES, RUTA_INDICE } from "../src/sistema.ts";
@@ -1941,6 +1941,12 @@ describe("altas solo con invitación (Carlos, 01/11/2026): la función de bloque
 });
 
 describe("aniversarios por correo (calendario, 03/11/2026), con el envío simulado", () => {
+  it("el nombre de los correos lleva el apodo, como en la web (05/11/2026)", () => {
+    const n = { first_name: "Ana", surname_list: [{ surname: "Pérez", prefix: "", connector: "" }] };
+    assert.equal(nombrePersona({ handle: "a", primary_name: { ...n, nick: "Pepa" } }), "Ana “Pepa” Pérez");
+    assert.equal(nombrePersona({ handle: "a", primary_name: { ...n, nick: "" } }), "Ana Pérez");
+  });
+
   const correos: Mensaje[] = [];
   const enviar = async (m: Mensaje) => { correos.push(m); };
   const fecha = (y: number, m: number, d: number) => ({ _class: "Date", modifier: 0, quality: 0, calendar: 0, dateval: [d, m, y, false], text: "", newyear: 0, sortval: 1 });

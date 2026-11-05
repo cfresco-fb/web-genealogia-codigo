@@ -315,15 +315,17 @@ describe("libro", () => {
     expect(solo[1]).toBe("Nació en 1961 en Madrid. Su madre es Inés Prueba (n.º 3).");
   });
 
-  it("apodo: «Conocido como “…”.», antes del nacimiento", () => {
+  it("apodo: dentro del nombre, sin frase aparte (05/11/2026)", () => {
     const nombre = arbol.persona("dx")!.primary_name;
     nombre.nick = "Dexi";
     try {
       const dx = entradas(construirLibro(arbol, opciones("dx", "ascendientes", 1), new Set())).get("1")!;
-      expect(dx[1]).toMatch(/^Apodo: “Dexi”\. Nació en 1960/);
+      expect(dx[0]).toContain("dx “Dexi” Prueba");
+      expect(dx[1]).toMatch(/^Nació en 1960/);
+      expect(dx.join(" ")).not.toMatch(/Conocid[oa] como|Apodo:/);
       arbol.persona("tio")!.primary_name.nick = "Tito";
       const tio = entradas(construirLibro(arbol, opciones("tio", "ascendientes", 1), new Set())).get("1")!;
-      expect(tio[1]).toMatch(/^Conocido como “Tito”\. Nació en 1912/);
+      expect(tio[1]).toMatch(/^Nació en 1912/);
     } finally {
       nombre.nick = "";
       arbol.persona("tio")!.primary_name.nick = "";
@@ -373,7 +375,7 @@ describe("libro", () => {
     // Los árboles del libro, con el formato abreviado (pdfLibro.ts).
     const g = construirGrafico(arbol, arbol.persona("ap")!, "descendientes", 2, { ...simbolosDe({ juego: "abreviaturas" }), formato: "abreviado" });
     expect(g.descendientes!.person!.birth.text).toBe("n. c. 1850, Madrid");
-    expect(g.descendientes!.children![0].family!.lines.map((l) => l.text)).toEqual(["casados", "divorciados"]);
+    expect(g.descendientes!.children![0].family!.lines.map((l) => l.text)).toEqual(["divorciados"]);
     expect(aniosIndice(arbol, arbol.persona("ap")!, new Set())).toBe(" (c. 1850–1920)");
     expect(aniosIndice(arbol, arbol.persona("pa")!, new Set())).toBe(" (1910–1990)");
     expect(aniosIndice(arbol, arbol.persona("ap")!, new Set(["ap"]))).toBe("");

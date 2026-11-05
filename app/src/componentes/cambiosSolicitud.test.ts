@@ -70,7 +70,7 @@ describe("qué pide una solicitud", () => {
       (p.primary_name as { nick: string }).nick = "Sally";
       p.gender = 2;
     })], [{ tipo: "Person", handle: "S", razon: "fueraDeRama" }]);
-    expect(r.razones).toEqual(["La persona Sarah Warner no es de tu rama."]);
+    expect(r.razones).toEqual(["La persona Sarah “Sally” Warner no es de tu rama."]);
     expect(r.lineas).toEqual(["Apodo: sin datos → Sally", "Sexo: Mujer → Desconocido"]);
   });
 

@@ -128,15 +128,33 @@
   color: var(--tema-azul);
 }
 
+/* Por dentro de la celda, que recorta lo que se sale (a -3px, solo quedaba
+   media asa). */
 .resizeHandle {
   position: absolute;
   top: 0;
-  right: -3px;
+  right: 0;
   bottom: 0;
   width: 6px;
   cursor: col-resize;
   touch-action: none;
   z-index: 1;
+}
+
+/* La línea entre las columnas, para que se vea que se pueden arrastrar
+   (05/11/2026); detrás de la última no hay otra columna. */
+.resizeHandle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--tema-linea-fuerte);
+}
+
+.headerCell:last-child .resizeHandle::after {
+  display: none;
 }
 
 .resizeHandle:hover,
