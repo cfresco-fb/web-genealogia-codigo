@@ -32,6 +32,7 @@
     "migrar-usuarios": "node firestore/usuarios_supabase.ts",
     "restaurar": "node firestore/restaurar.ts",
     "autorizar-drive": "node firestore/autorizar_drive.ts",
+    "aniversarios": "node firestore/aniversarios.ts",
     "creditos": "node scripts/creditos.ts",
     "iconos": "node scripts/iconos.ts",
     "pruebas-reglas": "node firestore/emuladores_pruebas.ts firestore,storage \"node --test --test-reporter=spec ../reglas/reglas.test.ts\""

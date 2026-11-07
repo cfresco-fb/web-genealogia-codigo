@@ -3,7 +3,7 @@ import { anchoPorTexto } from "./anchoColumna";
 
 describe("ancho inicial de las columnas de nombres", () => {
   it("con textos cortos o sin filas, el mínimo", () => {
-    expect(anchoPorTexto(["Ana", "Luis"], 260)).toBe(260);
+    expect(anchoPorTexto(["Ana", "Novio"], 260)).toBe(260);
     expect(anchoPorTexto([], 260)).toBe(260);
   });
   it("crece con el texto más largo", () => {

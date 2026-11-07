@@ -50,7 +50,7 @@ import { revertir } from "../src/reversion.ts";
 import { aceptarCambio } from "../src/revision.ts";
 import { guardarInvitacion } from "../src/usuarios.ts";
 import { avisarSolicitud, nombrePersona, type Mensaje } from "../src/avisos.ts";
-import { enviarAniversarios } from "../src/aniversarios.ts";
+import { enviarAniversarios, nombreSaludo } from "../src/aniversarios.ts";
 import { peticionBorrado } from "../../comun/borrado.ts";
 import { leerIndice, RUTA_CONTADORES, RUTA_INDICE } from "../src/sistema.ts";
 import {
@@ -1947,6 +1947,13 @@ describe("aniversarios por correo (calendario, 03/11/2026), con el envío simula
     assert.equal(nombrePersona({ handle: "a", primary_name: { ...n, nick: "" } }), "Ana Pérez");
   });
 
+  it("el saludo, con el apodo o el nombre de pila (07/11/2026)", () => {
+    const n = { first_name: "Ana", surname_list: [{ surname: "Pérez", prefix: "", connector: "" }] };
+    assert.equal(nombreSaludo({ handle: "a", primary_name: { ...n, nick: "Pepa" } }), "Pepa");
+    assert.equal(nombreSaludo({ handle: "a", primary_name: { ...n, nick: " " } }), "Ana");
+    assert.equal(nombreSaludo(null), "");
+  });
+
   const correos: Mensaje[] = [];
   const enviar = async (m: Mensaje) => { correos.push(m); };
   const fecha = (y: number, m: number, d: number) => ({ _class: "Date", modifier: 0, quality: 0, calendar: 0, dateval: [d, m, y, false], text: "", newyear: 0, sortval: 1 });
@@ -1971,12 +1978,13 @@ describe("aniversarios por correo (calendario, 03/11/2026), con el envío simula
     };
     await cubo.file(RUTA_INSTANTANEA).save(gzipSync(JSON.stringify({ objetos })), { contentType: "application/gzip" });
     for (const d of (await db.collection("preferencias").get()).docs) await d.ref.delete();
+    await db.doc("configuracion/arbol").delete();
     const lote = db.batch();
-    const suscrito = (correo: string, aniversarios: string, estado: string, region?: string) => {
-      lote.set(db.doc(`invitaciones/${correo}`), { correo, persona: null, rol: "familiar", estado });
+    const suscrito = (correo: string, aniversarios: string, estado: string, region?: string, persona: string | null = null) => {
+      lote.set(db.doc(`invitaciones/${correo}`), { correo, persona, rol: "familiar", estado });
       lote.set(db.doc(`preferencias/${correo}`), { aniversarios, ...(region ? { region } : {}) });
     };
-    suscrito("semanal@example.com", "semanal", "activa");
+    suscrito("semanal@example.com", "semanal", "activa", undefined, "ANA");
     suscrito("mensual@example.com", "mensual", "activa", "en-US");
     suscrito("revocado@example.com", "semanal", "revocada");
     lote.set(db.doc("preferencias/sin-suscripcion@example.com"), { modoColor: "oscuro" });
@@ -1987,19 +1995,24 @@ describe("aniversarios por correo (calendario, 03/11/2026), con el envío simula
     correos.length = 0;
     const r = await enviarAniversarios(db, cubo, [2026, 11, 8], enviar);
     assert.deepEqual([r.periodos, r.enviados, r.sinAniversarios, r.sinInvitacion, r.fallos], [["semanal"], 1, 0, 1, []]);
-    assert.deepEqual(correos.map((m) => [m.para, m.asunto]), [[["semanal@example.com"], "Aniversarios de la semana (9–15 de noviembre)"]]);
+    assert.deepEqual(correos.map((m) => [m.para, m.asunto]), [[["semanal@example.com"], "Árbol familiar: aniversarios (9–15 nov)"]]);
     const texto = correos[0].texto;
+    // Saludo con el nombre de su persona y, debajo, por qué le llega y dónde se cambia (07/11/2026).
+    assert.match(texto, /^Hola, Ana:\n\nTe llega este correo .* de cada semana\. Estos son los del 9 al 15 de noviembre\. .* aquí: http:\/\/localhost:5173\/ajustes\n/);
     assert.match(texto, /^9 de noviembre de 2026$/m);
     assert.match(texto, /^- Cumpleaños: Ana Prueba, cumple 70 años$/m);
     assert.match(texto, /^ {2}http:\/\/localhost:5173\/persona\/ANA$/m);
-    assert.match(texto, /Ajustes: http:\/\/localhost:5173\/ajustes$/);
+    assert.match(texto, /persona\/ANA$/, "sin nada detrás del último aniversario");
   });
 
   it("el último día del mes, el mes siguiente a los mensuales, en su región", async () => {
     correos.length = 0;
+    await db.doc("configuracion/arbol").set({ nombre: "Árbol de prueba" });
     const r = await enviarAniversarios(db, cubo, [2026, 11, 30], enviar);
+    await db.doc("configuracion/arbol").delete();
     assert.deepEqual([r.periodos, r.enviados], [["mensual"], 1]);
-    assert.equal(correos[0].asunto, "Aniversarios de December");
+    assert.equal(correos[0].asunto, "Árbol de prueba: aniversarios (December)", "con el nombre del árbol de Ajustes");
+    assert.match(correos[0].texto, /^Hola:$/m, "sin persona en la invitación");
     assert.match(correos[0].texto, /^December 5, 2026$/m);
     assert.match(correos[0].texto, /^- Boda: Novio Prueba y Ana Prueba, aniversario de boda: 46 años$/m);
     assert.match(correos[0].texto, /familia\/F1$/m);

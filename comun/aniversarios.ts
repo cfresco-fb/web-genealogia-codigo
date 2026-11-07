@@ -169,7 +169,8 @@ export type ClaveAniversarios =
   | "calendario.cumple" | "calendario.cumpleUno" | "calendario.nacio" | "calendario.nacioUno"
   | "calendario.fallecio" | "calendario.fallecioUno" | "calendario.aniversarioBoda" | "calendario.aniversarioBodaUno"
   | "calendario.seCasaron" | "calendario.seCasaronUno"
-  | "calendario.asuntoSemana" | "calendario.asuntoMes" | "calendario.correoPie";
+  | "calendario.asunto" | "calendario.correoSaludo" | "calendario.correoSaludoSinNombre"
+  | "calendario.correoIntroSemana" | "calendario.correoIntroMes" | "calendario.correoSemana" | "calendario.correoMes";
 export type Traducir = (clave: ClaveAniversarios, valores?: Record<string, string | number>) => string;
 
 /** «Cumpleaños», «Nacimiento», «Defunción» o «Boda». */
@@ -220,9 +221,37 @@ const formato = (region: string, opciones: Intl.DateTimeFormatOptions) =>
 export const fechaLarga = (region: string, d: Dia): string =>
   formato(region, { day: "numeric", month: "long", year: "numeric" }).format(fechaUtc(d));
 
-/** «Aniversarios de la semana (3–9 de noviembre)» o «Aniversarios de
- * noviembre», en la región del usuario. */
-export function asuntoCorreo(p: Periodo, region: string, t: Traducir): string {
-  if (p.suscripcion === "mensual") return t("calendario.asuntoMes", { mes: formato(region, { month: "long" }).format(fechaUtc(p.desde)) });
-  return t("calendario.asuntoSemana", { rango: formato(region, { day: "numeric", month: "long" }).formatRange(fechaUtc(p.desde), fechaUtc(p.hasta)) });
+const nombreMes = (region: string, d: Dia) => formato(region, { month: "long" }).format(fechaUtc(d));
+
+/** «Árbol Pérez-Gómez: aniversarios (9–15 nov)» o «…: aniversarios
+ * (diciembre)», con el nombre del árbol (el de Ajustes) y en la región del
+ * usuario (Carlos, 07/11/2026). */
+export function asuntoCorreo(p: Periodo, region: string, t: Traducir, arbol: string): string {
+  const periodo = p.suscripcion === "mensual" ? nombreMes(region, p.desde)
+    : formato(region, { day: "numeric", month: "short" }).formatRange(fechaUtc(p.desde), fechaUtc(p.hasta));
+  return t("calendario.asunto", { arbol, periodo });
+}
+
+/** «del 9 al 15 de noviembre», «del 30 de noviembre al 6 de diciembre»,
+ * «del 28 de diciembre de 2026 al 3 de enero de 2027» o «de diciembre». */
+export function periodoCorreo(p: Periodo, region: string, t: Traducir): string {
+  if (p.suscripcion === "mensual") return t("calendario.correoMes", { mes: nombreMes(region, p.desde) });
+  const [d, h] = [p.desde, p.hasta];
+  const otroAnio = d[0] !== h[0];
+  const desde: Intl.DateTimeFormatOptions = otroAnio ? { day: "numeric", month: "long", year: "numeric" }
+    : d[1] !== h[1] ? { day: "numeric", month: "long" } : { day: "numeric" };
+  const hasta: Intl.DateTimeFormatOptions = { day: "numeric", month: "long", ...(otroAnio ? { year: "numeric" } : {}) };
+  return t("calendario.correoSemana", { desde: formato(region, desde).format(fechaUtc(d)), hasta: formato(region, hasta).format(fechaUtc(h)) });
+}
+
+/** El principio del correo (Carlos, 07/11/2026): el saludo, con el apodo o
+ * el nombre de pila (sin nombre, «Hola:»), y por qué le llega, qué periodo
+ * es y dónde se cambia. */
+export function introCorreo(p: Periodo, region: string, t: Traducir, nombre: string, urlAjustes: string): string[] {
+  const clave = p.suscripcion === "mensual" ? "calendario.correoIntroMes" : "calendario.correoIntroSemana";
+  return [
+    nombre ? t("calendario.correoSaludo", { nombre }) : t("calendario.correoSaludoSinNombre"),
+    "",
+    t(clave, { periodo: periodoCorreo(p, region, t), url: urlAjustes }),
+  ];
 }

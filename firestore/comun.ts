@@ -3,7 +3,7 @@
  *
  * Trabajan contra los emuladores (proyecto «demo-…»). Los que lo admiten
  * (carga, invitaciones, descarga, instantánea, copias pequeñas, rutas,
- * migración de los usuarios de Supabase) trabajan con
+ * migración de los usuarios de Supabase, ensayo de los aniversarios) trabajan con
  * el proyecto real si se les pasa «--produccion»: piden escribir su
  * identificador para seguir (`elegirDestino`) y usan las credenciales de la
  * cuenta de Google del ordenador (`gcloud auth application-default login`),

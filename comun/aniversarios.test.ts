@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  aniversarios, asuntoCorreo, diaSemana, fechaExacta, fechaLarga, leerTiposCorreo, periodosDelDia, porDia, textoAniversario,
+  aniversarios, asuntoCorreo, diaSemana, introCorreo, periodoCorreo, fechaExacta, fechaLarga, leerTiposCorreo, periodosDelDia, porDia, textoAniversario,
   type Aniversario, type DatosAniversarios, type Dia, type Traducir,
 } from "./aniversarios.ts";
 import { es } from "../app/src/i18n/es.ts";
@@ -148,9 +148,22 @@ test("correo: el domingo, la semana siguiente; el último día del mes, el mes s
 
 test("correo: asunto y fechas en la región del usuario", () => {
   const [semana] = periodosDelDia([2026, 11, 8]);
-  assert.equal(asuntoCorreo(semana, "es-ES", t), "Aniversarios de la semana (9–15 de noviembre)");
+  assert.equal(asuntoCorreo(semana, "es-ES", t, "Árbol Pérez"), "Árbol Pérez: aniversarios (9–15 nov)");
   const [mes] = periodosDelDia([2026, 11, 30]);
-  assert.equal(asuntoCorreo(mes, "es-ES", t), "Aniversarios de diciembre");
+  assert.equal(asuntoCorreo(mes, "es-ES", t, "Árbol Pérez"), "Árbol Pérez: aniversarios (diciembre)");
+  const [cruza] = periodosDelDia([2026, 11, 29]);
+  assert.equal(asuntoCorreo(cruza, "es-ES", t, "Árbol Pérez"), "Árbol Pérez: aniversarios (30 nov – 6 dic)", "con espacios finos");
+  // El periodo, en el texto (07/11/2026).
+  assert.equal(periodoCorreo(semana, "es-ES", t), "del 9 al 15 de noviembre");
+  assert.equal(periodoCorreo(cruza, "es-ES", t), "del 30 de noviembre al 6 de diciembre");
+  assert.equal(periodoCorreo(periodosDelDia([2026, 12, 27])[0], "es-ES", t), "del 28 de diciembre de 2026 al 3 de enero de 2027");
+  assert.equal(periodoCorreo(mes, "es-ES", t), "de diciembre");
+  assert.deepEqual(introCorreo(semana, "es-ES", t, "Pepa", "https://web/ajustes"), [
+    "Hola, Pepa:", "",
+    "Te llega este correo porque has pedido en los ajustes de la web los aniversarios de cada semana. Estos son los del 9 al 15 de noviembre. Puedes cambiar lo que recibes o quitar este correo aquí: https://web/ajustes",
+  ]);
+  assert.equal(introCorreo(mes, "es-ES", t, "", "u")[0], "Hola:");
+  assert.match(introCorreo(mes, "es-ES", t, "", "u")[2], /de cada mes\. Estos son los de diciembre\./);
   assert.equal(fechaLarga("es-ES", [2026, 11, 9]), "9 de noviembre de 2026");
   assert.equal(fechaLarga("en-US", [2026, 11, 9]), "November 9, 2026");
 });
