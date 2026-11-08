@@ -12,7 +12,7 @@ import { nombreTipo, t } from "../i18n";
 import { type EventosPendientes, MarcaPendiente } from "./AvisoSolicitudes";
 import { EnlaceLugar } from "./Enlaces";
 import { Foto, VisorFoto } from "./Foto";
-import { FormularioEvento } from "./FormularioEvento";
+import { FormularioEvento } from "./diferidos";
 import { IconoEditar } from "./Iconos";
 
 /** El fondo de las filas alternas de una tabla rayada de Mantine. */

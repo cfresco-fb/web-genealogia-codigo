@@ -9,7 +9,7 @@ import type { ChildRef, Familia, Persona } from "../arbol/tipos";
 import { EnlacePersona, rutaEditarFamilia } from "../componentes/Enlaces";
 import { AvisoSolicitudes, MarcaPendiente, usePendientes } from "../componentes/AvisoSolicitudes";
 import { BorrarFicha } from "../componentes/BorrarFicha";
-import { Historial } from "./Cambios";
+import { Historial } from "../componentes/diferidos";
 import { IconoDesplegar, IconoEditar } from "../componentes/Iconos";
 import { Dato, DatosPareja, Galeria, hayEventos, LineasVitales, NoExiste, Seccion, SinDatos, TablaEventos, Tarjeta } from "../componentes/Ficha";
 import { Notas } from "../componentes/Notas";

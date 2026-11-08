@@ -9,7 +9,7 @@ import { anio, textoFecha, valorOrden } from "../arbol/fechas";
 import { descripcionFoto, type FechaVital } from "../arbol/arbol";
 import type { Familia, Lugar, Multimedia, Persona } from "../arbol/tipos";
 import { Listado, type ColumnaLista } from "../componentes/Listado";
-import { FormularioLugar } from "../componentes/FormularioLugar";
+import { FormularioLugar } from "../componentes/diferidos";
 import { IconoEditar } from "../componentes/Iconos";
 import { ContextoPropuesta, usePermisos } from "../arbol/permisos";
 import { Foto, VisorFoto } from "../componentes/Foto";

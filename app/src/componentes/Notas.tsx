@@ -4,7 +4,8 @@ import { useArbol } from "../arbol/contexto";
 import { usePermisos } from "../arbol/permisos";
 import type { Nota } from "../arbol/tipos";
 import { nombreTipo, t } from "../i18n";
-import { FormularioNota, type DuenioNota } from "./FormularioNota";
+import { FormularioNota } from "./diferidos";
+import type { DuenioNota } from "./FormularioNota";
 import { IconoEditar } from "./Iconos";
 
 /** Texto de las notas, sin el formato (negrita, colores…) de Gramps, que

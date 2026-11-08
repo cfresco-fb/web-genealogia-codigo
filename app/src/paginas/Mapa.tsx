@@ -37,7 +37,7 @@ import {
 } from "../arbol/mapa";
 import type { Familia, Lugar, Persona } from "../arbol/tipos";
 import { EnlaceFamilia, EnlaceLugar, EnlacePersona } from "../componentes/Enlaces";
-import { FormularioLugar } from "../componentes/FormularioLugar";
+import { FormularioLugar } from "../componentes/diferidos";
 import { htmlMarcador, iconoGrupo, iconoLugar, nuevoMapa } from "../componentes/leafletMapa";
 import { RecordPicker } from "../gramps-connect/formularios/RecordPicker";
 import { formatoNumero, nombreTipo, t, type Clave } from "../i18n";

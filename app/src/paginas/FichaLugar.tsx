@@ -15,10 +15,9 @@ import { ContextoPropuesta, usePermisos } from "../arbol/permisos";
 import type { Evento, Familia, Lugar, Persona } from "../arbol/tipos";
 import { EnlaceFamilia, EnlaceLugar, EnlacePersona, rutaMapaLugar } from "../componentes/Enlaces";
 import { DatosEnColumnas, NoExiste, Seccion, Tarjeta } from "../componentes/Ficha";
-import { FormularioLugar } from "../componentes/FormularioLugar";
+import { FormularioLugar, Historial } from "../componentes/diferidos";
 import { IconoEditar } from "../componentes/Iconos";
 import { Notas } from "../componentes/Notas";
-import { Historial } from "./Cambios";
 import { nombreTipo, t } from "../i18n";
 
 // El mapa pequeño, con Leaflet, aparte: solo se descarga si se muestra.

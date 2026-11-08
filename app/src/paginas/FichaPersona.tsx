@@ -9,7 +9,7 @@ import { EnlaceFamilia, EnlacePersona, rutaEditarFamilia, rutaEditarPersona, rut
 import { DatosEnColumnas, DatosPareja, Galeria, hayEventos, NoExiste, Seccion, TablaEventos, Tarjeta } from "../componentes/Ficha";
 import { AvisoSolicitudes, DatoPendiente, usePendientes } from "../componentes/AvisoSolicitudes";
 import { BorrarFicha } from "../componentes/BorrarFicha";
-import { Historial } from "./Cambios";
+import { Historial } from "../componentes/diferidos";
 import { Foto, VisorFoto } from "../componentes/Foto";
 import { IconoDesplegar, IconoEditar } from "../componentes/Iconos";
 import { Notas } from "../componentes/Notas";

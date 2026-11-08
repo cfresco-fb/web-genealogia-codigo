@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Anchor, AppShell, Avatar, Burger, Button, Center, Divider, Group, Loader, Menu, NavLink, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { lazy, useEffect, useState } from "react";
+import { Anchor, AppShell, Avatar, Burger, Button, Divider, Group, Menu, NavLink, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { color } from "./tema/colores";
 import { useDisclosure } from "@mantine/hooks";
 import { Link, Route, Routes, useLocation, useNavigate } from "react-router";
@@ -8,19 +8,14 @@ import { useSesion } from "./acceso/sesion";
 import { t, type Clave } from "./i18n";
 import { Ajustes } from "./paginas/Ajustes";
 import { Buscar } from "./paginas/Buscar";
-import { EditarFamilia, NuevaFamilia } from "./paginas/EditarFamilia";
-import { EditarPersona } from "./paginas/EditarPersona";
 import { FichaFamilia } from "./paginas/FichaFamilia";
 import { FichaPersona } from "./paginas/FichaPersona";
 import { Grafico } from "./paginas/Grafico";
 import { Inicio } from "./paginas/Inicio";
 import { ListaEventos, ListaFamilias, ListaLugares, ListaMultimedia, ListaPersonas } from "./paginas/Listas";
-import { DetalleSolicitud, Solicitudes } from "./paginas/Solicitudes";
-import { DetalleCambio } from "./paginas/Cambios";
-import { Administracion } from "./paginas/Administracion";
 import { Privacidad } from "./paginas/Privacidad";
 import { FichaLugar } from "./paginas/FichaLugar";
-import { Calendario } from "./paginas/Calendario";
+import { Diferido } from "./componentes/diferidos";
 
 // Menú lateral en dos grupos (decisión del 24/10/2026, «Diseño visual»):
 // arriba Inicio, Árbol y Buscar (y Solicitudes, paso 12, y Administración,
@@ -48,6 +43,17 @@ const MENU_LISTAS: [string, Clave][] = [
 const Creditos = lazy(() => import("./paginas/Creditos").then((m) => ({ default: m.Creditos })));
 // El mapa, con Leaflet, también aparte (docs/mapa.md).
 const Mapa = lazy(() => import("./paginas/Mapa").then((m) => ({ default: m.Mapa })));
+// Y las páginas que la mayoría de los familiares no abre: edición,
+// solicitudes, cambios, administración y el calendario (revisión del
+// 08/11/2026, B1; componentes/diferidos.tsx).
+const EditarPersona = lazy(() => import("./paginas/EditarPersona").then((m) => ({ default: m.EditarPersona })));
+const EditarFamilia = lazy(() => import("./paginas/EditarFamilia").then((m) => ({ default: m.EditarFamilia })));
+const NuevaFamilia = lazy(() => import("./paginas/EditarFamilia").then((m) => ({ default: m.NuevaFamilia })));
+const Solicitudes = lazy(() => import("./paginas/Solicitudes").then((m) => ({ default: m.Solicitudes })));
+const DetalleSolicitud = lazy(() => import("./paginas/Solicitudes").then((m) => ({ default: m.DetalleSolicitud })));
+const DetalleCambio = lazy(() => import("./paginas/Cambios").then((m) => ({ default: m.DetalleCambio })));
+const Administracion = lazy(() => import("./paginas/Administracion").then((m) => ({ default: m.Administracion })));
+const Calendario = lazy(() => import("./paginas/Calendario").then((m) => ({ default: m.Calendario })));
 
 // Las listas ocupan el alto de la ventana; el mapa, no (debajo puede llevar
 // la lista de lugares sin coordenadas), ni el calendario.
@@ -171,27 +177,27 @@ export function App() {
             <Route path="/" element={<Inicio />} />
             <Route path="/personas" element={<ListaPersonas />} />
             <Route path="/familias" element={<ListaFamilias />} />
-            <Route path="/calendario" element={<Calendario />} />
+            <Route path="/calendario" element={<Diferido><Calendario /></Diferido>} />
             <Route path="/eventos" element={<ListaEventos />} />
             <Route path="/lugares" element={<ListaLugares />} />
-            <Route path="/mapa" element={<Suspense fallback={<Center p="xl"><Loader /></Center>}><Mapa /></Suspense>} />
+            <Route path="/mapa" element={<Diferido><Mapa /></Diferido>} />
             <Route path="/multimedia" element={<ListaMultimedia />} />
             <Route path="/buscar" element={<Buscar />} />
             <Route path="/persona/:handle" element={<FichaPersona />} />
-            <Route path="/persona/:handle/editar" element={<EditarPersona />} />
+            <Route path="/persona/:handle/editar" element={<Diferido><EditarPersona /></Diferido>} />
             <Route path="/familia/:handle" element={<FichaFamilia />} />
-            <Route path="/familia/nueva" element={<NuevaFamilia />} />
-            <Route path="/familia/:handle/editar" element={<EditarFamilia />} />
+            <Route path="/familia/nueva" element={<Diferido><NuevaFamilia /></Diferido>} />
+            <Route path="/familia/:handle/editar" element={<Diferido><EditarFamilia /></Diferido>} />
             <Route path="/lugar/:handle" element={<FichaLugar />} />
             <Route path="/arbol" element={<Grafico />} />
             <Route path="/arbol/:handle" element={<Grafico />} />
             <Route path="/ajustes" element={<Ajustes />} />
             <Route path="/privacidad" element={<Privacidad />} />
-            <Route path="/creditos" element={<Suspense fallback={<Center p="xl"><Loader /></Center>}><Creditos /></Suspense>} />
-            <Route path="/administracion" element={<Administracion />} />
-            <Route path="/solicitudes" element={<Solicitudes />} />
-            <Route path="/solicitudes/:id" element={<DetalleSolicitud />} />
-            <Route path="/cambios/:id" element={<DetalleCambio />} />
+            <Route path="/creditos" element={<Diferido><Creditos /></Diferido>} />
+            <Route path="/administracion" element={<Diferido><Administracion /></Diferido>} />
+            <Route path="/solicitudes" element={<Diferido><Solicitudes /></Diferido>} />
+            <Route path="/solicitudes/:id" element={<Diferido><DetalleSolicitud /></Diferido>} />
+            <Route path="/cambios/:id" element={<Diferido><DetalleCambio /></Diferido>} />
             <Route path="*" element={<Text>{t("app.noEncontrado")}</Text>} />
           </Routes>
         </div>

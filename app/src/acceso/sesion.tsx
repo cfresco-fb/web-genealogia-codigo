@@ -99,7 +99,7 @@ export function ProveedorAcceso({ children }: { children: ReactNode }) {
         <Center h="100dvh" p="md">
           <Alert color="red" title={t("acceso.error.comprobar")} maw={480}>
             <Stack>
-              <Text size="xs" ff="monospace">{estado.mensaje}</Text>
+              <Text size="sm" ff="monospace">{estado.mensaje}</Text>
               <Group>
                 <Button onClick={() => revisar(estado.usuario)}>{t("acceso.reintentar")}</Button>
                 <Button variant="default" onClick={salir}>{t("acceso.salir")}</Button>
