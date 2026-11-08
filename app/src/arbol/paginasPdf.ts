@@ -72,8 +72,11 @@ export function avisoPapel(papel: Papel): "pequeno" | "grande" | null {
 }
 export type ModoPdf = "continuacion" | "mosaico" | "unaPagina";
 
-/** Papeles con «Una sola página», de menor a mayor. */
-export const PAPELES_UNA_PAGINA: Papel[] = ["A3", "A2", "A1", "A0"];
+/** Papeles con «Una sola página», de menor a mayor. A4 y Letter desde el
+ * 08/11/2026 (para árboles pequeños que no caben a 8 puntos en una hoja
+ * normal), y se comportan como los grandes. Son casi iguales (624 y 603
+ * cm²): ninguno es mayor que el otro (GEMELO). */
+export const PAPELES_UNA_PAGINA: Papel[] = ["A4", "Letter", "A3", "A2", "A1", "A0"];
 /** Papel de rollo (copisterías, trazadores): solo con «Una sola página»; el
  * ancho, el del rollo, y el largo, el que haga falta, hasta el máximo de una
  * página de PDF (200 pulgadas, 5.080 mm). */
@@ -82,6 +85,21 @@ export const ROLLO_ANCHO_MM = 914;
 export const ROLLO_LARGO_MAXIMO_MM = 5000;
 /** Los papeles del árbol, con el rollo. */
 export type PapelArbol = Papel | typeof ROLLO;
+/** Si el papel tiene «Una sola página». */
+export const conUnaPagina = (p: PapelArbol): boolean => p === ROLLO || PAPELES_UNA_PAGINA.includes(p);
+/** El reparto al cambiar de papel: al pasar a uno con «Una sola página»
+ * desde uno sin él, ese por defecto; al pasar a uno sin él, continuación;
+ * entre dos que lo tienen (o dos que no), el que había. Sin cambiar de papel,
+ * el que había (las opciones recordadas se respetan). */
+export function modoAlCambiarPapel(antes: PapelArbol, despues: PapelArbol, modo: ModoPdf): ModoPdf {
+  if (despues === antes) return modo;
+  if (conUnaPagina(despues) && !conUnaPagina(antes)) return "unaPagina";
+  if (!conUnaPagina(despues) && modo === "unaPagina") return "continuacion";
+  return modo;
+}
+/** A4 y Letter, casi iguales: desde uno no se propone el otro como papel en
+ * el que cabe (el siguiente es A3). */
+const GEMELO: Partial<Record<PapelArbol, PapelArbol>> = { A4: "Letter", Letter: "A4" };
 /** Una hoja ya orientada, en mm. */
 export interface TamanoHoja {
   ancho: number;
@@ -622,7 +640,8 @@ function hojaRollo(tamano: Tamano, o: Orientacion, espacio: Espacio): TamanoHoja
 export const PAPELES_UNA_PAGINA_Y_ROLLO: PapelArbol[] = [...PAPELES_UNA_PAGINA, ROLLO];
 
 export interface DondeCabe {
-  /** El papel más pequeño (de A3 al rollo) en el que cabe. */
+  /** El papel más pequeño (de A4 al rollo) en el que cabe; nunca el gemelo
+   * del elegido (GEMELO). */
   papel: PapelArbol | null;
   /** Si no cabe ni en el rollo, cuántas generaciones caben en él (null si
    * ni con las mínimas). */
@@ -634,10 +653,13 @@ export function dondeCabeUnaPagina(
   o: {
     arbol: Arbol; persona: Persona; tipo: TipoGrafico; generaciones: number; simbolos: PresentacionCajas; disposicion: Disposicion;
     orientacion: PaperOrientation; espacio?: Espacio;
+    /** El papel elegido en el diálogo. */
+    papel?: PapelArbol;
   },
   datos: DatosGrafico, minimo = LETRA_MINIMA_UNA_PAGINA_PT,
 ): DondeCabe {
-  const papel = PAPELES_UNA_PAGINA_Y_ROLLO.find((p) =>
+  const gemelo = o.papel ? GEMELO[o.papel] : undefined;
+  const papel = PAPELES_UNA_PAGINA_Y_ROLLO.find((p) => p !== gemelo &&
     planificarUnaPagina(datos, o.persona, o.tipo, o.generaciones, o.disposicion, p, o.orientacion, minimo, o.espacio).cabe) ?? null;
   if (papel) return { papel, generaciones: o.generaciones };
   for (let g = o.generaciones - 1; g >= GENERACIONES_MIN; g--) {

@@ -33,8 +33,8 @@ import {
   type PresentacionCajas, type TipoGrafico,
 } from "../arbol/grafico";
 import {
-  avisoPapel, dondeCabeUnaPagina, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT,
-  LETRAS_UNA_PAGINA_PT, PAPELES, PAPELES_UNA_PAGINA, planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO,
+  avisoPapel, conUnaPagina, dondeCabeUnaPagina, modoAlCambiarPapel, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT,
+  LETRAS_UNA_PAGINA_PT, PAPELES, planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO,
   ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type Espacio, type ModoPdf, type PaginaPlan, type Papel, type PapelArbol, type Plan,
 } from "../arbol/paginasPdf";
 import type { Persona } from "../arbol/tipos";
@@ -145,7 +145,7 @@ function Contenido({
   const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
   const [error, setError] = useState(false);
   const { papel, orientacion, letraUna, sencillas } = opciones;
-  const conUnaPagina = (p: PapelArbol) => p === ROLLO || PAPELES_UNA_PAGINA.includes(p);
+  // Con A4, Letter y de A3 a A0 (y el rollo), «Una sola página».
   const grande = conUnaPagina(papel);
   // El rollo solo tiene «Una sola página»; los otros repartos se calculan
   // (sin mostrarlos) con A0.
@@ -155,12 +155,9 @@ function Contenido({
 
   const cambiar = (o: Partial<Opciones>) => {
     const nuevas = { ...opciones, ...o };
-    // Con A3 a A0, «Una sola página» por defecto; con los demás no existe.
-    if (o.papel && o.papel !== papel) {
-      const esGrande = conUnaPagina(o.papel);
-      if (esGrande && !grande) nuevas.modo = "unaPagina";
-      if (!esGrande && nuevas.modo === "unaPagina") nuevas.modo = "continuacion";
-    }
+    // Con A4, Letter y de A3 a A0, «Una sola página» por defecto al
+    // elegirlos; con los demás no existe.
+    if (o.papel) nuevas.modo = modoAlCambiarPapel(papel, o.papel, nuevas.modo);
     setOpciones(nuevas);
     guardarOpciones(nuevas);
   };
@@ -211,14 +208,14 @@ function Contenido({
   const noCabeUna = !cabe && modo === "unaPagina" && !!unaPagina && !unaPagina.cabe;
   const otra: Disposicion = disposicion === "vertical" ? "horizontal" : "vertical";
   const donde = useMemo(
-    () => (noCabeUna ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion, orientacion, espacio }, completo, letraUna) : null),
-    [noCabeUna, arbol, persona, tipo, generaciones, cajas, disposicion, orientacion, completo, letraUna, espacio],
+    () => (noCabeUna ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion, orientacion, espacio, papel }, completo, letraUna) : null),
+    [noCabeUna, arbol, persona, tipo, generaciones, cajas, disposicion, orientacion, completo, letraUna, espacio, papel],
   );
   const dondeOtra = useMemo(
     () => (noCabeUna
-      ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion: otra, orientacion, espacio }, completo, letraUna)
+      ? dondeCabeUnaPagina({ arbol, persona, tipo, generaciones, simbolos: cajas, disposicion: otra, orientacion, espacio, papel }, completo, letraUna)
       : null),
-    [noCabeUna, arbol, persona, tipo, generaciones, cajas, otra, orientacion, completo, letraUna, espacio],
+    [noCabeUna, arbol, persona, tipo, generaciones, cajas, otra, orientacion, completo, letraUna, espacio, papel],
   );
   // La otra disposición, si cabe en un papel más pequeño o con más
   // generaciones (si cabe en el papel elegido, se dice así).

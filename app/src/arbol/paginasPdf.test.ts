@@ -9,7 +9,8 @@ import { Arbol } from "./arbol";
 import { prepararFechas } from "./fechas";
 import { construirGrafico } from "./grafico";
 import {
-  avisoPapel, CABECERA_PRIMERA_MM, CABECERA_PRIMERA_SIN_SUBTITULO_MM, componer, dondeCabeUnaPagina, ESCALA_MAXIMA, ESPACIO_COMPLETO,
+  avisoPapel, CABECERA_PRIMERA_MM, CABECERA_PRIMERA_SIN_SUBTITULO_MM, componer, conUnaPagina, dondeCabeUnaPagina, modoAlCambiarPapel, PAPELES,
+  PAPELES_UNA_PAGINA_Y_ROLLO, ESCALA_MAXIMA, ESPACIO_COMPLETO,
   MARGEN_MM, PIE_MM, type Espacio, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT, LETRAS_UNA_PAGINA_PT,
   planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO, ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type Bloque, type Plan,
 } from "./paginasPdf";
@@ -585,10 +586,59 @@ describe("PDF en una sola página (decisión del 25/10/2026)", () => {
     expect([...LETRAS_UNA_PAGINA_PT]).toEqual([4, 5, 6]);
     const o = { arbol, persona: arbol.persona("r")!, tipo: "ascendientes" as const, generaciones: 8, simbolos: ABREV, disposicion: "horizontal" as const, orientacion: "auto" as const };
     const ocho = construirGrafico(arbol, o.persona, "ascendientes", 8, ABREV);
-    const orden = (p: string | null) => (p ? ["A3", "A2", "A1", "A0", ROLLO].indexOf(p) : 99);
+    const orden = (p: string | null) => (p ? PAPELES_UNA_PAGINA_Y_ROLLO.indexOf(p as never) : 99);
     expect(orden(dondeCabeUnaPagina(o, ocho, 4).papel)).toBeLessThanOrEqual(orden(dondeCabeUnaPagina(o, ocho, 5).papel));
     expect(orden(dondeCabeUnaPagina(o, ocho, 5).papel)).toBeLessThanOrEqual(orden(dondeCabeUnaPagina(o, ocho, 6).papel));
     expect(dondeCabeUnaPagina(o, ocho, 1000)).toEqual({ papel: null, generaciones: null });
+  });
+});
+
+describe("«Una sola página» también con A4 y Letter (decisión del 08/11/2026)", () => {
+  // El árbol se prepara en beforeAll: se lee al usarlo.
+  const opciones = () => ({ arbol, persona: arbol.persona("r")!, tipo: "ascendientes" as const, simbolos: ABREV, orientacion: "auto" as const });
+  type Caso = { g: number; disposicion: "horizontal" | "vertical"; datos: ReturnType<typeof construirGrafico> };
+  const casos = (): Caso[] => [2, 3, 4, 5, 6, 7, 8].flatMap((g) => (["horizontal", "vertical"] as const).map((disposicion) => ({
+    g, disposicion, datos: construirGrafico(arbol, arbol.persona("r")!, "ascendientes", g, ABREV),
+  })));
+  const cabe = (c: Caso, papel: "A4" | "Letter" | "A3", minimo: number) =>
+    planificarUnaPagina(c.datos, arbol.persona("r")!, "ascendientes", c.g, c.disposicion, papel, "auto", minimo).cabe;
+
+  it("A4 y Letter la admiten, como de A3 a A0 y el rollo; A5, Legal y los demás, no", () => {
+    for (const p of ["A4", "Letter", "A3", "A2", "A1", "A0", ROLLO] as const) expect(conUnaPagina(p)).toBe(true);
+    for (const p of ["A5", "Legal"] as const) expect(conUnaPagina(p)).toBe(false);
+    expect(PAPELES.filter(conUnaPagina)).toEqual(["A0", "A1", "A2", "A3", "A4", "Letter"].filter((p) => PAPELES.includes(p as never)).sort((a, b) => PAPELES.indexOf(a as never) - PAPELES.indexOf(b as never)));
+  });
+
+  it("al elegir A4 o Letter, «Una sola página» por defecto, como con A3; con A5 o Legal, continuación", () => {
+    for (const p of ["A4", "Letter", "A3"] as const) expect(modoAlCambiarPapel("A5", p, "continuacion")).toBe("unaPagina");
+    for (const p of ["A5", "Legal"] as const) {
+      expect(modoAlCambiarPapel("A4", p, "unaPagina")).toBe("continuacion");
+      expect(modoAlCambiarPapel("Letter", p, "unaPagina")).toBe("continuacion");
+    }
+    expect(modoAlCambiarPapel("A5", "Legal", "continuacion")).toBe("continuacion");
+    // Lo recordado se respeta: sin cambiar de papel, o entre dos que lo tienen.
+    expect(modoAlCambiarPapel("A4", "A4", "continuacion")).toBe("continuacion");
+    expect(modoAlCambiarPapel("A4", "A4", "mosaico")).toBe("mosaico");
+    expect(modoAlCambiarPapel("A4", "A3", "mosaico")).toBe("mosaico");
+    expect(modoAlCambiarPapel("A3", "A2", "continuacion")).toBe("continuacion");
+  });
+
+  it("un árbol que no cabe a 8 puntos en A4 cabe a 6 en una sola página A4", () => {
+    expect(casos().some((c) => !cabe(c, "A4", 8) && cabe(c, "A4", 6))).toBe(true);
+  });
+
+  it("si no cabe en A4, el papel propuesto es A3, nunca Letter; y desde Letter, nunca A4", () => {
+    const o = opciones();
+    const todos = casos();
+    const saltan = todos.filter((c) => !cabe(c, "A4", 6) && cabe(c, "A3", 6));
+    expect(saltan.length).toBeGreaterThan(0);
+    for (const c of saltan) {
+      expect(dondeCabeUnaPagina({ ...o, generaciones: c.g, disposicion: c.disposicion, papel: "A4" }, c.datos, 6).papel).toBe("A3");
+    }
+    for (const c of todos) {
+      if (!cabe(c, "A4", 6)) expect(dondeCabeUnaPagina({ ...o, generaciones: c.g, disposicion: c.disposicion, papel: "A4" }, c.datos, 6).papel).not.toBe("Letter");
+      if (!cabe(c, "Letter", 6)) expect(dondeCabeUnaPagina({ ...o, generaciones: c.g, disposicion: c.disposicion, papel: "Letter" }, c.datos, 6).papel).not.toBe("A4");
+    }
   });
 });
 
