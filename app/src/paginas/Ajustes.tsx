@@ -1,21 +1,22 @@
 // Ajustes (decisiones del 23/10/2026, «Ajustes, persona de inicio, cajas y
 // fechas», y del 24/10/2026, «Diseño visual»), en dos bloques, cada sección
 // en su tarjeta: «Tu cuenta» (correo con el rol, quién soy en el árbol,
-// persona de inicio, símbolos, región y formato de fecha, modo de color,
-// aniversarios por correo) y
+// persona de inicio, símbolos, región y formato de fecha, modo de color, de
+// quién son los aniversarios, aniversarios por correo) y
 // «Administración del árbol» (nombre del árbol, quién se considera vivo).
 // Los demás usuarios no ven el bloque del administrador. «Salir», en el
 // menú de la cuenta de la cabecera (28/10/2026).
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation } from "react-router";
-import { Alert, Checkbox, Group, NumberInput, Radio, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Box, Checkbox, Group, NumberInput, Radio, SegmentedControl, Select, Stack, Text, TextInput, Title } from "@mantine/core";
 import { GENERACIONES_MIN, GENERACIONES_POR_DEFECTO, type Generaciones as GeneracionesArbol } from "../arbol/grafico";
 import { MODOS_COLOR, usePreferencias, type ModoColor } from "../acceso/preferencias";
 import { useSesion } from "../acceso/sesion";
 import { useArbol } from "../arbol/contexto";
 import { muestraFecha, normalizarRegion, regionFechas, regionNavegador } from "../arbol/fechas";
 import { EnlacePersona, type SeccionAjustes } from "../componentes/Enlaces";
+import { QuienEntra, useFamiliaCercana } from "../componentes/FamiliaCercana";
 import { Tarjeta } from "../componentes/Ficha";
 import { SeccionNombreArbol } from "../componentes/NombreArbol";
 import { SeccionSimbolos } from "../componentes/Simbolos";
@@ -93,6 +94,53 @@ function ModoDeColor() {
         data={MODOS_COLOR.map((m) => ({ value: m, label: t(`ajustes.modo.${m}` as Clave) }))}
         style={{ alignSelf: "flex-start" }}
       />
+      {estado === "guardado" && <Text size="sm" c="green">{t("simbolos.guardado")}</Text>}
+      {estado === "error" && <Alert color="red"><Text size="sm">{t("simbolos.error")}</Text></Alert>}
+    </>
+  );
+}
+
+/** De quién son los aniversarios, en la página «Calendario» y en el correo
+ * (Carlos, 11/11/2026; docs/calendario.md): «Mi familia cercana» (por
+ * defecto), explicada punto por punto con cuántas personas son ahora, o
+ * «Todo el árbol». Sin persona vinculada, no hay elección: todo el árbol. */
+function AniversariosDe() {
+  const arbol = useArbol();
+  const { aniversariosDe, guardarAniversariosDe } = usePreferencias();
+  const familia = useFamiliaCercana();
+  const [estado, setEstado] = useState<"" | "guardando" | "guardado" | "error">("");
+
+  if (!familia) return <Text size="sm" c="dimmed">{t("aniversariosDe.sinPersona")}</Text>;
+
+  async function cambiar(v: string) {
+    setEstado("guardando");
+    try {
+      await guardarAniversariosDe(v === "arbol" ? "arbol" : "familia");
+      setEstado("guardado");
+    } catch (e) {
+      console.error(e);
+      setEstado("error");
+    }
+  }
+
+  return (
+    <>
+      <Text size="sm" c="dimmed">{t("ajustes.aniversariosDeAyuda")}</Text>
+      <Radio.Group value={aniversariosDe} onChange={cambiar} aria-label={t("ajustes.aniversariosDe")}>
+        <Stack gap="sm" mt={4}>
+          <div>
+            <Radio value="familia" label={t("aniversariosDe.familia")} disabled={estado === "guardando"} />
+            {/* La lista, debajo del rótulo y no como «description», que es un párrafo. */}
+            <Box pl={32} mt={4}><QuienEntra cuantas={familia.size} /></Box>
+          </div>
+          <Radio
+            value="arbol"
+            label={t("aniversariosDe.arbol")}
+            description={t("aniversariosDe.arbolAyuda", { n: arbol.personas.size })}
+            disabled={estado === "guardando"}
+          />
+        </Stack>
+      </Radio.Group>
       {estado === "guardado" && <Text size="sm" c="green">{t("simbolos.guardado")}</Text>}
       {estado === "error" && <Alert color="red"><Text size="sm">{t("simbolos.error")}</Text></Alert>}
     </>
@@ -340,6 +388,10 @@ export function Ajustes() {
 
         <Seccion titulo={t("ajustes.modoColor")} id="modo-color">
           <ModoDeColor />
+        </Seccion>
+
+        <Seccion titulo={t("ajustes.aniversariosDe")} id="aniversarios-de">
+          <AniversariosDe />
         </Seccion>
 
         <Seccion titulo={t("ajustes.aniversarios")} id="aniversarios">

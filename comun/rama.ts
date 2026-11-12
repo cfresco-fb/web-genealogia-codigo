@@ -49,7 +49,7 @@ export const RAMA_VACIA: Rama = { personas: new Set(), familias: new Set() };
 /** Generaciones de ascendientes que entran: padres y abuelos. */
 const GENERACIONES_ARRIBA = 2;
 
-function padres(indice: Indice, persona: string): string[] {
+export function padres(indice: Indice, persona: string): string[] {
   const salida: string[] = [];
   for (const f of indice.personas.get(persona)?.pf ?? []) {
     const fam = indice.familias.get(f);
@@ -59,11 +59,11 @@ function padres(indice: Indice, persona: string): string[] {
   return salida;
 }
 
-/** Ascendientes hasta `n` generaciones (sin la persona). */
-function ascendientes(indice: Indice, persona: string, n: number): Set<string> {
+/** Ascendientes hasta `n` generaciones (sin la persona; con Infinity, todos). */
+export function ascendientes(indice: Indice, persona: string, n: number): Set<string> {
   const salida = new Set<string>();
   let nivel = [persona];
-  for (let g = 0; g < n; g++) {
+  for (let g = 0; g < n && nivel.length; g++) {
     const siguiente: string[] = [];
     for (const x of nivel) {
       for (const p of padres(indice, x)) {
@@ -79,7 +79,7 @@ function ascendientes(indice: Indice, persona: string, n: number): Set<string> {
 }
 
 /** Todos los descendientes (sin la persona). */
-function descendientes(indice: Indice, persona: string): Set<string> {
+export function descendientes(indice: Indice, persona: string): Set<string> {
   const salida = new Set<string>();
   const pendientes = [persona];
   while (pendientes.length) {
@@ -97,7 +97,7 @@ function descendientes(indice: Indice, persona: string): Set<string> {
 }
 
 /** El otro miembro de cada familia propia de la persona. */
-function conyuges(indice: Indice, persona: string): string[] {
+export function conyuges(indice: Indice, persona: string): string[] {
   const salida: string[] = [];
   for (const f of indice.personas.get(persona)?.f ?? []) {
     const fam = indice.familias.get(f);
@@ -110,7 +110,7 @@ function conyuges(indice: Indice, persona: string): string[] {
 
 /** Los hijos de todas las familias propias de cada una de esas personas,
  * sin `excepto`. */
-function hijosDe(indice: Indice, quienes: Iterable<string>, excepto: string): Set<string> {
+export function hijosDe(indice: Indice, quienes: Iterable<string>, excepto: string): Set<string> {
   const salida = new Set<string>();
   for (const q of quienes) {
     for (const f of indice.personas.get(q)?.f ?? []) {

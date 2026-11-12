@@ -48,7 +48,12 @@
 // - MODIFICADO el 05/11/2026: también en la mitad de ascendientes, el óvalo de
 //   los padres de la persona central (TreeFamily.parents), en una fila propia;
 //   tercera línea del nombre solo en las filas que la necesitan
-//   (needsThirdLine).
+//   (needsThirdLine);
+// - MODIFICADO el 12/11/2026: cajas completas (Medidas.full; decisión
+//   «Cajas completas y ayuda del PDF»): nada se recorta; el nombre, la fecha
+//   y el lugar, partidos en las líneas que hagan falta, con el alto de cada
+//   generación decidido antes de dibujar (fullText, con DATA_WIDTHS y
+//   NAME_WIDTHS); los óvalos, más altos, todos los de una fila iguales.
 
 // Port of gramps-web's ../../../gramps-web/src/charts/TreeChart.js
 // (TreeChartCore/TreeChart) -- d3-hierarchy for layout, d3-shape for the
@@ -88,6 +93,11 @@ export interface TreeLine {
    * 12/05/1980» y el lugar; 31/10/2026). La segunda, si tampoco cabe, se
    * recorta con «…». */
   wrap?: [string, string];
+  /** Cajas completas (12/11/2026): la primera parte, en su línea (el símbolo
+   * y la fecha: «n. 03/05/1950»), y el lugar, que va debajo, partido por las
+   * comas. Sin ellas, el texto entero, partido por palabras. */
+  head?: string;
+  place?: string;
 }
 
 /** Persona de una caja, con los textos ya preparados. */
@@ -172,6 +182,9 @@ interface Medidas {
   gapV: number;
   gapX: number;
   compact: boolean;
+  /** Cajas completas: nada se recorta, y las cajas y los óvalos crecen en
+   * alto (12/11/2026). */
+  full: boolean;
 }
 const NORMALES: Medidas = {
   box: { vertical: { w: 190, h: 146 }, horizontal: { w: 230, h: 90 } },
@@ -179,7 +192,10 @@ const NORMALES: Medidas = {
   gapV: 40,
   gapX: 60,
   compact: false,
+  full: false,
 };
+/** Cajas completas (12/11/2026): las medidas de las normales; crece el alto. */
+const COMPLETAS: Medidas = { ...NORMALES, full: true };
 /** Cajas pequeñas (PDF del árbol, respuesta del 25/10/2026): sin foto, con
  * solo los años y sin lugares (lo pone quien hace los datos), más estrechas
  * y más bajas, con las líneas más juntas; óvalos más estrechos y menos hueco
@@ -190,13 +206,14 @@ const PEQUENAS: Medidas = {
   gapV: 28,
   gapX: 40,
   compact: true,
+  full: false,
 };
 /** Las medidas del dibujo o la medición en curso: las fijan, mientras
  * trabajan, las funciones exportadas (conMedidas); todas son síncronas. */
 let M: Medidas = NORMALES;
-function conMedidas<T>(compact: boolean | undefined, fn: () => T): T {
+function conMedidas<T>(compact: boolean | undefined, full: boolean | undefined, fn: () => T): T {
   const antes = M;
-  M = compact ? PEQUENAS : NORMALES;
+  M = compact ? PEQUENAS : full ? COMPLETAS : NORMALES;
   try {
     return fn();
   } finally {
@@ -247,7 +264,40 @@ function ovalLinesOf(f: TreeFamily): TreeLine[] {
     return cut < 0 ? [line] : [parte(line.text.slice(0, cut)), parte(line.text.slice(cut + 1))];
   });
 }
+/** Altura, respecto al centro del óvalo, de la línea `i` de `n`. */
+const ovalLineY = (i: number, n: number) => (i - (n - 1) / 2) * OVAL_LINE + 4.5;
+/** Lo que la elipse deja de ancho a una línea: el borde, a la altura de la
+ * línea (de 9 por encima a 3 por debajo de la base), con 14 de margen. */
+const ovalLineMax = (w: number, h: number, y: number) =>
+  Math.min(w - OVAL_MARGIN, w * Math.sqrt(1 - Math.min(1, Math.max(Math.abs(y - 9), Math.abs(y + 3)) / (h / 2)) ** 2) - 14);
+/** Con cajas completas (12/11/2026), las líneas del óvalo enteras: la
+ * primera parte de cada una (la fecha) y el lugar debajo, partido por las
+ * comas; lo demás («casados», «sin relación de pareja»), por palabras. */
+function fullOvalLines(f: TreeFamily): string[] {
+  const max = M.oval.w - OVAL_MARGIN;
+  return f.lines.flatMap((line) => [
+    ...wrapTokens([line.head ?? line.text], max, max, dataWidth),
+    ...(line.place ? wrapTokens(placeTokens(line.place), max, max, dataWidth) : []),
+  ]);
+}
+/** El óvalo de las cajas completas: del ancho de siempre y tan alto como
+ * haga falta para que la elipse deje a cada línea su ancho. */
+function fullOvalSize(f: TreeFamily): { w: number; h: number } {
+  const lines = fullOvalLines(f);
+  const n = lines.length;
+  if (!n) return OVAL_EMPTY;
+  const w = M.oval.w;
+  let h = Math.max(M.oval.h, 16 + OVAL_LINE * n);
+  lines.forEach((text, i) => {
+    const y = ovalLineY(i, n);
+    const edge = Math.max(Math.abs(y - 9), Math.abs(y + 3));
+    const room = (dataWidth(text) + 14) / w;
+    if (room < 1) h = Math.max(h, (2 * edge) / Math.sqrt(1 - room ** 2));
+  });
+  return { w, h: Math.ceil(h) };
+}
 const ovalSize = (f: TreeFamily) => {
+  if (M.full) return fullOvalSize(f);
   const lines = ovalLinesOf(f);
   const n = lines.length;
   if (!n) return OVAL_EMPTY;
@@ -255,11 +305,6 @@ const ovalSize = (f: TreeFamily) => {
   const w = f.dashed ? Math.max(M.oval.w, Math.max(...lines.map((l) => l.text.length)) * OVAL_CHAR + OVAL_MARGIN) : M.oval.w;
   return { w, h: Math.max(M.oval.h, 16 + OVAL_LINE * n) };
 };
-/** Lo que ocupa un óvalo a lo ancho de su generación, respecto a su centro. */
-function ovalAcross(f: TreeFamily, layout: ChartLayout): [number, number] {
-  const w = across(ovalSize(f), layout) / 2;
-  return [-w, w];
-}
 // gramps-web's own default (charts/TreeChart.js) -- the vertical gap
 // between sibling boxes in the same generation/column, which is what
 // nodeSize's x-step below controls.
@@ -397,8 +442,13 @@ export function fitName(lines: SVGTextElement[]): void {
  * final. El SVG tiene que estar ya en el documento: solo ahí se puede
  * medir. Entre el texto recortado y la versión corta va el texto sin lo
  * recortable (la fecha entera sin el lugar: «n. 03/05/1950»). El nombre, en
- * varias líneas (fitName). */
+ * varias líneas (fitName). Con cajas completas no hay nada que recortar: solo
+ * se comprueba que todo cabe (overflowingTexts). */
 export function fitTexts(svg: SVGSVGElement): void {
+  for (const el of overflowingTexts(svg)) {
+    el.setAttribute("data-overflow", "");
+    console.warn("Cajas completas: una línea no cabe en su hueco", el.textContent);
+  }
   for (const el of Array.from(svg.querySelectorAll<SVGTextElement>('text[data-wrap="1"]'))) {
     const lines = Array.from(el.parentNode?.querySelectorAll<SVGTextElement>("text[data-wrap]") ?? [])
       .sort((a, b) => Number(a.getAttribute("data-wrap")) - Number(b.getAttribute("data-wrap")));
@@ -440,6 +490,14 @@ export function fitTexts(svg: SVGSVGElement): void {
       fits(best ?? "");
     }
   }
+}
+
+/** Con cajas completas, las líneas que miden más de lo calculado antes de
+ * dibujar (data-check): no deberían salir nunca; los recorridos en el
+ * navegador las buscan (data-overflow). Con medio punto de holgura. */
+export function overflowingTexts(svg: SVGSVGElement): SVGTextElement[] {
+  return Array.from(svg.querySelectorAll<SVGTextElement>("text[data-check]"))
+    .filter((el) => el.getComputedTextLength() > Number(el.getAttribute("data-check")) + 0.5);
 }
 
 /** Disposición del árbol (decisión del 22/10/2026, «Disposición de los
@@ -514,6 +572,100 @@ const nameWidth = (text: string) => NAME_WIDTH_MARGIN * [...text.normalize("NFD"
   (sum, c) => sum + (NAME_WIDTHS.get(c) ?? (c.codePointAt(0)! >= 0x2e80 ? NAME_WIDTH_IDEOGRAM : NAME_WIDTH_OTHER)), 0,
 );
 
+// ---- Cajas completas (12/11/2026, «Cajas completas y ayuda del PDF») ----
+
+/** Ancho de cada letra de las fechas, los lugares y los óvalos (Noto Sans de
+ * 12 px, medido en el navegador el 12/11/2026), para partir las líneas de las
+ * cajas completas sin el navegador. Con el mismo 3 % de más que los nombres. */
+const DATA_WIDTHS = new Map<string, number>(([
+  [2.1, "’"], [2.7, "'"], [3.1, " ijl"], [3.2, ".,;:!"], [3.3, "J"], [3.6, "()"], [3.9, "-[]"], [4.1, "fI"],
+  [4.3, "t“”ª"], [4.5, "/º"], [4.9, "\""], [5, "r"], [5.1, "°"], [5.2, "?"], [5.6, "z"], [5.7, "cs"], [6, "–"],
+  [6.1, "vy«»†"], [6.2, "F"], [6.3, "xL"], [6.4, "k"], [6.6, "S*"], [6.7, "aeE"], [6.8, "Y"], [6.9, "TZ0123456789+"],
+  [7, "X"], [7.2, "oV"], [7.3, "P✝"], [7.4, "bdghnpquCK"], [7.5, "R"], [7.7, "A"], [7.8, "B#"], [8.3, "✡"], [8.7, "G"],
+  [8.8, "DU&"], [8.9, "H"], [9.1, "N"], [9.4, "wOQ"], [10.9, "M"], [11.2, "mW"], [12, "—"],
+] as [number, string][]).flatMap(([w, letters]) => [...letters].map((c): [string, number] => [c, w])));
+const DATA_WIDTH_OTHER = 8.5;
+const DATA_WIDTH_IDEOGRAM = 12;
+// Sin los acentos (como la letra sin ellos) ni los selectores de variante (✡︎).
+const dataWidth = (text: string) => NAME_WIDTH_MARGIN * [...text.normalize("NFD").replace(/[̀-ͯ︎️]/g, "")].reduce(
+  (sum, c) => sum + (DATA_WIDTHS.get(c) ?? (c.codePointAt(0)! >= 0x2e80 ? DATA_WIDTH_IDEOGRAM : DATA_WIDTH_OTHER)), 0,
+);
+
+/** Parte en líneas un texto hecho de trozos (`tokens`): en cada línea, los
+ * que quepan, separados por un espacio (la primera, de `first` de ancho; las
+ * demás, de `max`). Un trozo que no cabe solo en una línea se parte por sus
+ * espacios (un apodo de varias palabras, un trozo de lugar) y, si es una sola
+ * palabra, por letras. Nada se recorta. */
+export function wrapTokens(tokens: string[], first: number, max: number, width: (text: string) => number): string[] {
+  const lines: string[] = [];
+  const queue = tokens.filter(Boolean);
+  let current = "";
+  const limit = () => (lines.length ? max : first);
+  while (queue.length) {
+    const token = queue.shift()!;
+    const candidate = current ? `${current} ${token}` : token;
+    if (width(candidate) <= limit()) {
+      current = candidate;
+    } else if (current) {
+      lines.push(current);
+      current = "";
+      queue.unshift(token);
+    } else if (token.includes(" ")) {
+      queue.unshift(...token.split(" "));
+    } else {
+      const letters = [...token];
+      let n = 1;
+      while (n < letters.length && width(letters.slice(0, n + 1).join("")) <= limit()) n++;
+      lines.push(letters.slice(0, n).join(""));
+      if (n < letters.length) queue.unshift(letters.slice(n).join(""));
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/** Los trozos de un lugar, por las comas, cada uno con la suya («Great
+ * Falls,», «MT,», «USA»). */
+const placeTokens = (place: string) => place.split(/,\s*/).map((part, i, all) => (i < all.length - 1 ? `${part},` : part));
+
+/** El texto de una caja completa, ya partido en líneas: el nombre (el de pila
+ * y, desde una línea nueva, los apellidos con el ID del administrador
+ * detrás), el ID en su línea (PDF con «Incluir identificadores») y, por cada
+ * dato (nacimiento, defunción), la fecha y debajo el lugar. `unknown`: el
+ * texto de «Cónyuge desconocido», sin datos. */
+export interface FullText {
+  name: string[];
+  id: string | null;
+  data: string[][];
+}
+export function fullText(p: TreePerson, layout: ChartLayout, photoRow: boolean, unknown?: string): FullText {
+  const max = textWidthOf(layout, !!p.photo);
+  const first = max - linkRoomOf(layout, photoRow);
+  if (unknown !== undefined) return { name: wrapTokens(nameWords(unknown), first, max, nameWidth), id: null, data: [] };
+  const given = wrapTokens(nameWords(p.nameGiven), first, max, nameWidth);
+  const surname = wrapTokens([...nameWords(p.nameSurname), ...(p.grampsId ? [`[${p.grampsId}]`] : [])], given.length ? max : first, max, nameWidth);
+  const data = [p.birth, p.death].filter((line) => line.text).map((line) => [
+    ...wrapTokens([line.head ?? line.text], max, max, dataWidth),
+    ...(line.place ? wrapTokens(placeTokens(line.place), max, max, dataWidth) : []),
+  ]);
+  return { name: [...given, ...surname], id: p.idLine ?? null, data };
+}
+
+/** Dónde va cada línea de una caja completa (la línea base, desde el borde
+ * de arriba) y el alto que necesita. Con los mismos huecos que las cajas
+ * normales: con dos líneas de nombre, nacimiento y defunción, miden lo mismo. */
+export function fullRows(text: FullText, layout: ChartLayout, photoRow: boolean): { name: number[]; id: number | null; data: number[][]; height: number } {
+  const vertical = layout === "vertical";
+  const nameStep = vertical ? 16 : photoRow ? 15 : 17;
+  const toData = vertical ? 18 : photoRow ? 16 : 17;
+  const betweenData = vertical ? 16 : photoRow ? 15 : 17;
+  let y = vertical ? 25 + (photoRow ? PHOTO_ROOM : 0) : photoRow ? 19 : 25;
+  const name = text.name.map((_, i) => (i ? (y += nameStep) : y));
+  const id = text.id === null ? null : (y += vertical ? 17 : nameStep);
+  const data = text.data.map((lines, j) => lines.map((_, i) => (y += i ? 15 : j ? betweenData : id === null ? toData : vertical ? 17 : toData)));
+  return { name, id, data, height: y + (vertical ? 9 : 10) };
+}
+
 /** El nombre de pila de esta caja necesita dos líneas (con más de una palabra:
  * una sola no se parte), y por tanto los apellidos, la tercera. En horizontal
  * con foto, ya tiene tres. */
@@ -567,6 +719,24 @@ interface Rows {
   extras: Map<number, number>;
   allExtras: number;
   data: Set<number>;
+  /** Con cajas completas, el alto de la caja más llena de cada fila. */
+  full: Map<number, number>;
+}
+/** Con cajas completas, el alto de la caja más llena de cada generación (los
+ * cónyuges, en la de la persona). */
+function fullDepths(data: TreeNode | null, layout: ChartLayout, photos: Set<number>): Map<number, number> {
+  const out = new Map<number, number>();
+  if (!data || !M.full) return out;
+  const add = (depth: number, p: TreePerson | null | undefined) => {
+    if (!p) return;
+    const photoRow = photos.has(depth);
+    out.set(depth, Math.max(out.get(depth) ?? 0, fullRows(fullText(p, layout, photoRow), layout, photoRow).height));
+  };
+  hierarchy(data, (d) => d.children).each((d) => {
+    add(d.depth, d.data.person);
+    add(d.depth - 1, d.data.family?.spouse);
+  });
+  return out;
 }
 function chartRows(ancestorTree: TreeNode | null, descendantTree: TreeNode | null, layout: ChartLayout): Record<Half, Rows> {
   const shared = (a: Set<number>, d: Set<number>) => {
@@ -589,14 +759,25 @@ function chartRows(ancestorTree: TreeNode | null, descendantTree: TreeNode | nul
   const data = { ancestors: dataDepths(ancestorTree), descendants: dataDepths(descendantTree) };
   shared(data.ancestors, data.descendants);
   const allExtras = layout === "horizontal" ? Math.max(0, ...extras.ancestors.values(), ...extras.descendants.values()) : 0;
+  const full = { ancestors: fullDepths(ancestorTree, layout, photos.ancestors), descendants: fullDepths(descendantTree, layout, photos.descendants) };
+  const centralFull = Math.max(full.ancestors.get(0) ?? 0, full.descendants.get(0) ?? 0);
+  if (centralFull) {
+    full.ancestors.set(0, centralFull);
+    full.descendants.set(0, centralFull);
+  }
   return {
-    ancestors: { photos: photos.ancestors, extras: extras.ancestors, allExtras, data: data.ancestors },
-    descendants: { photos: photos.descendants, extras: extras.descendants, allExtras, data: data.descendants },
+    ancestors: { photos: photos.ancestors, extras: extras.ancestors, allExtras, data: data.ancestors, full: full.ancestors },
+    descendants: { photos: photos.descendants, extras: extras.descendants, allExtras, data: data.descendants, full: full.descendants },
   };
 }
 const extraRows = (rows: Rows, depth: number) => Math.max(rows.allExtras, rows.extras.get(depth) ?? 0);
-const rowSize = (layout: ChartLayout, rows: Rows, depth: number) =>
-  boxSize(layout, rows.photos.has(depth), extraRows(rows, depth), !rows.data.has(depth));
+/** Con cajas completas, el alto de la más llena, sin bajar del de las
+ * normales (las líneas de más ya van en él). */
+function rowSize(layout: ChartLayout, rows: Rows, depth: number): { w: number; h: number } {
+  if (!M.full) return boxSize(layout, rows.photos.has(depth), extraRows(rows, depth), !rows.data.has(depth));
+  const base = boxSize(layout, rows.photos.has(depth), 0, !rows.data.has(depth));
+  return { w: base.w, h: Math.max(base.h, rows.full.get(depth) ?? 0) };
+}
 
 /** Lo que ocupan las generaciones de óvalos a lo largo del eje de las
  * generaciones: el más grande de cada una, y nunca menos que OVAL. */
@@ -708,12 +889,34 @@ const unknownSpouse = (f: TreeFamily): TreePerson => ({
 function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows): HalfLayout {
   const horizontal = layout === "horizontal";
   const sign = sideSign(half);
-  const boxAcross = across(boxSize(layout, false, rows.allExtras), layout);
+  const boxAcrossAll = across(boxSize(layout, false, rows.allExtras), layout);
   const rowBox = (depth: number) => rowSize(layout, rows, depth);
+  /** Lo que ocupa una caja a lo ancho de su generación: con cajas completas
+   * en horizontal, el alto de su columna (12/11/2026); si no, el mismo en
+   * todas. */
+  const boxAcross = (depth: number) => (M.full ? across(rowBox(depth), layout) : boxAcrossAll);
   const gapAcross = horizontal ? GAP_Y : GAP_B;
-  const step = boxAcross + gapAcross;
+  const step = (depth: number) => boxAcross(depth) + gapAcross;
   const ovals = ovalRows(data, layout);
   const center = (depth: number) => columnCenter(depth, layout, rows, ovals);
+  /** Con cajas completas, los óvalos con texto de una generación, todos del
+   * alto del más alto (12/11/2026); los que solo unen, pequeños. */
+  const ovalHeights = new Map<number, number>();
+  if (M.full) {
+    hierarchy(data, (d) => d.children).each((d) => {
+      const f = d.data.family;
+      if (f?.lines.length) ovalHeights.set(d.depth, Math.max(ovalHeights.get(d.depth) ?? 0, ovalSize(f).h));
+    });
+  }
+  const ovalAt = (f: TreeFamily, depth: number) => {
+    const size = ovalSize(f);
+    const h = ovalHeights.get(depth);
+    return h && f.lines.length ? { w: size.w, h } : size;
+  };
+  const ovalAcrossAt = (f: TreeFamily, depth: number): [number, number] => {
+    const w = across(ovalAt(f, depth), layout) / 2;
+    return [-w, w];
+  };
 
   /** Posición a lo ancho de cada nodo respecto a la de su padre en el
    * árbol (una familia, respecto a la persona; un hijo, respecto al óvalo de
@@ -737,8 +940,8 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
   };
 
   /** Hermanos en fila, centrados sobre el primero y el último. */
-  const siblings = (nodes: TreeNode[]): { c: Contour; off: number[] } => {
-    const subs = nodes.map(person);
+  const siblings = (nodes: TreeNode[], depth: number): { c: Contour; off: number[] } => {
+    const subs = nodes.map((n) => person(n, depth));
     const pos = pack(subs.map((c) => ({ c, want: 0 })));
     const mid = (pos[0] + pos[pos.length - 1]) / 2;
     const off = pos.map((x) => x - mid);
@@ -747,18 +950,20 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     return { c, off };
   };
 
-  /** Perfil del subárbol de una persona, con su caja en 0. */
-  function person(n: TreeNode): Contour {
-    const c: Contour = { l: [-boxAcross / 2], r: [boxAcross / 2] };
+  /** Perfil del subárbol de una persona (de la generación `depth`), con su
+   * caja en 0. */
+  function person(n: TreeNode, depth: number): Contour {
+    const boxW = boxAcross(depth);
+    const c: Contour = { l: [-boxW / 2], r: [boxW / 2] };
     const children = n.children ?? [];
     const families = children.filter((ch) => ch.family);
     const parentsOval = families.find((ch) => ch.family!.parents);
     if (parentsOval) {
-      const [l, r] = ovalAcross(parentsOval.family!, layout);
+      const [l, r] = ovalAcrossAt(parentsOval.family!, depth + 1);
       rel.set(parentsOval, 0);
       mergeContour(c, { l: [l], r: [r] }, 0, 1);
       const parents = parentsOval.children ?? [];
-      const row = siblings(parents);
+      const row = siblings(parents, depth + 2);
       mergeContour(c, row.c, 0, 2);
       parents.forEach((ch, j) => rel.set(ch, row.off[j]));
       return c;
@@ -766,7 +971,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     if (!families.length) {
       const parents = children.filter((ch) => ch.person);
       if (parents.length) {
-        const row = siblings(parents);
+        const row = siblings(parents, depth + 1);
         mergeContour(c, row.c, 0, 1);
         parents.forEach((ch, j) => rel.set(ch, row.off[j]));
       }
@@ -776,16 +981,16 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     const blocks: { c: Contour; off: number[]; nodes: TreeNode[]; oval: number }[] = [];
     families.forEach((f, i) => {
       const slot = i < left ? i - left : i - left + 1;
-      const spouse = slot * step;
-      const oval = spouse - (Math.sign(slot) * step) / 2;
+      const spouse = slot * step(depth);
+      const oval = spouse - (Math.sign(slot) * step(depth)) / 2;
       spouseRel.set(f.family!, spouse);
       rel.set(f, oval);
-      c.l[0] = Math.min(c.l[0], spouse - boxAcross / 2);
-      c.r[0] = Math.max(c.r[0], spouse + boxAcross / 2);
-      const [l, r] = ovalAcross(f.family!, layout);
+      c.l[0] = Math.min(c.l[0], spouse - boxW / 2);
+      c.r[0] = Math.max(c.r[0], spouse + boxW / 2);
+      const [l, r] = ovalAcrossAt(f.family!, depth + 1);
       mergeContour(c, { l: [l], r: [r] }, oval, 1);
       const kids = (f.children ?? []).filter((ch) => ch.person);
-      if (kids.length) blocks.push({ ...siblings(kids), nodes: kids, oval });
+      if (kids.length) blocks.push({ ...siblings(kids, depth + 2), nodes: kids, oval });
     });
     if (blocks.length) {
       const pos = pack(blocks.map((b) => ({ c: b.c, want: b.oval })));
@@ -800,7 +1005,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     return c;
   }
 
-  person(data);
+  person(data, 0);
   const root = hierarchy(data, (d) => d.children);
   /** Posición a lo ancho de cada nodo, con la persona central en 0. */
   const acrossOf = new Map<TreeNode, number>();
@@ -818,9 +1023,9 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     const ac = acrossOf.get(d.data)!;
     if (d.data.family) {
       const family = d.data.family;
-      const size = ovalSize(family);
+      const size = ovalAt(family, d.depth);
       const [px, py] = point(al, ac);
-      const [l, r] = ovalAcross(family, layout);
+      const [l, r] = ovalAcrossAt(family, d.depth);
       const alongHalf = along(size, layout) / 2;
       const bounds = horizontal
         ? { x0: px - alongHalf, x1: px + alongHalf, y0: py + l, y1: py + r }
@@ -857,7 +1062,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     const family = d.data.family;
     if (family) {
       // De la persona y de su cónyuge al óvalo de su familia.
-      const target = point(dal - sign * (along(ovalSize(family), layout) / 2 - 1), acrossOf.get(d.data)!);
+      const target = point(dal - sign * (along(ovalAt(family, d.depth), layout) / 2 - 1), acrossOf.get(d.data)!);
       out.links.push({ source: boxEdge(parent.depth, pal, pac, sign), target });
       if (!family.parents) out.links.push({ source: boxEdge(parent.depth, pal, pac + spouseRel.get(family)!, sign), target });
       continue;
@@ -865,7 +1070,7 @@ function layoutHalf(data: TreeNode, half: Half, layout: ChartLayout, rows: Rows)
     const target = boxEdge(d.depth, dal, acrossOf.get(d.data)!, -sign);
     const parentFamily = parent.data.family;
     if (parentFamily) {
-      out.links.push({ source: point(pal + sign * (along(ovalSize(parentFamily), layout) / 2 - 1), pac), target });
+      out.links.push({ source: point(pal + sign * (along(ovalAt(parentFamily, parent.depth), layout) / 2 - 1), pac), target });
     } else {
       out.links.push({ source: boxEdge(parent.depth, pal, pac, sign), target });
     }
@@ -989,11 +1194,20 @@ function treeChartCore(
   // Las líneas del óvalo, sin rótulo, centradas en alto (la fecha y el
   // lugar de la boda, «div. …»…). Cada una, del ancho que deja la elipse a
   // su altura.
-  const ovalLines = (d: PlacedOval) => ovalLinesOf(d.family).map((line, i, all) => {
-    const y = (i - (all.length - 1) / 2) * OVAL_LINE + 4.5;
-    const edge = Math.min(1, (Math.max(Math.abs(y - 9), Math.abs(y + 3)) / (d.h / 2)));
-    return { line, y, max: Math.min(d.w - OVAL_MARGIN, d.w * Math.sqrt(1 - edge ** 2) - 14) };
-  });
+  // Con cajas completas, enteras y ya partidas (data-check: lo que cabe, para
+  // ver si algo se sale; nada se recorta).
+  const ovalLines = (d: PlacedOval) => {
+    if (M.full) {
+      return fullOvalLines(d.family).map((text, i, all) => {
+        const y = ovalLineY(i, all.length);
+        return { line: { text, keep: 0, short: "", keepShort: 0 } as TreeLine, y, max: ovalLineMax(d.w, d.h, y) };
+      });
+    }
+    return ovalLinesOf(d.family).map((line, i, all) => {
+      const y = ovalLineY(i, all.length);
+      return { line, y, max: ovalLineMax(d.w, d.h, y) };
+    });
+  };
   oval
     .selectAll("text")
     .data(ovalLines)
@@ -1002,8 +1216,8 @@ function treeChartCore(
     .attr("text-anchor", "middle")
     .attr("font-size", DATA_FONT_SIZE)
     .attr("fill", color("tinta-suave"))
-    .attr("data-max", (l) => l.max)
-    .attr("data-keep", (l) => l.line.keep)
+    .attr(M.full ? "data-check" : "data-max", (l) => l.max)
+    .attr("data-keep", (l) => (M.full ? null : l.line.keep))
     .attr("data-short", (l) => l.line.short || null)
     .attr("data-keep-short", (l) => (l.line.short ? l.line.keepShort : null))
     .text((l) => l.line.text);
@@ -1070,7 +1284,9 @@ function treeChartCore(
   // y centrada; en horizontal, a la izquierda y centrada en alto.
   const withImage = node.filter((d) => !!d.person.photo);
   const imgX = horizontal ? -BOX_WIDTH / 2 + IMG_PADDING : -IMG_SIZE / 2;
-  const imgY = (d: PlacedBox) => (horizontal ? -IMG_SIZE / 2 : -bh(d) / 2 + 8);
+  // Con cajas completas en horizontal, a la misma distancia del borde de
+  // arriba que en las normales, junto a la primera línea.
+  const imgY = (d: PlacedBox) => (horizontal ? (M.full ? -bh(d) / 2 + (NORMALES.box.horizontal.h - IMG_SIZE) / 2 : -IMG_SIZE / 2) : -bh(d) / 2 + 8);
 
   const defs = svgParent.append("defs");
   defs
@@ -1151,7 +1367,31 @@ function treeChartCore(
   const surnameLine = (d: PlacedBox) => (d.unknown ? null : d.person.nameSurname || labels.noSurname);
   const suffix = (d: PlacedBox) => (d.person.grampsId ? ` [${d.person.grampsId}]` : "");
   const nameLines = (d: PlacedBox) => ((horizontal && hasImage(d)) || needsThirdLine(d.person, layout, d.photoRow) ? 3 : 2);
-  for (const i of [0, 1, 2]) {
+  if (M.full) {
+    // Cajas completas (12/11/2026): las líneas ya partidas (fullText), en
+    // los huecos de fullRows; data-check, lo que cabe, para ver si algo se
+    // sale (fitTexts lo avisa).
+    node.each(function (d) {
+      const g = select(this);
+      const text = fullText(d.person, layout, d.photoRow, d.unknown ? labels.unknownSpouse : undefined);
+      const at = fullRows(text, layout, d.photoRow);
+      const top = -bh(d) / 2;
+      const put = (line: string, y: number, max: number, name: boolean) => g
+        .append("text")
+        .attr("y", top + y)
+        .attr("x", textX(d))
+        .attr("text-anchor", anchor)
+        .attr("font-size", name ? null : DATA_FONT_SIZE)
+        .attr("font-weight", name && !d.unknown ? 600 : null)
+        .attr("fill", color(name && !d.unknown ? "tinta" : "tinta-suave"))
+        .attr("data-check", max)
+        .text(line);
+      text.name.forEach((line, i) => put(line, at.name[i], i ? textWidth(d) : textWidth(d) - linkRoom(d), true));
+      if (text.id !== null && at.id !== null) put(text.id, at.id, textWidth(d), false);
+      text.data.forEach((lines, j) => lines.forEach((line, i) => put(line, at.data[j][i], textWidth(d), false)));
+    });
+  }
+  for (const i of M.full ? [] : [0, 1, 2]) {
     node
       .filter((d) => i < nameLines(d))
       .append("text")
@@ -1171,7 +1411,7 @@ function treeChartCore(
 
   // El ID, si va en su línea (PDF con «Incluir identificadores»).
   node
-    .filter((d) => !!d.person.idLine)
+    .filter((d) => !M.full && !!d.person.idLine)
     .append("text")
     .attr("y", (d) => rows(d).id)
     .attr("x", textX)
@@ -1182,6 +1422,7 @@ function treeChartCore(
 
   // Nacimiento: la línea sale siempre («n. sin datos»).
   node
+    .filter(() => !M.full)
     .append("text")
     .attr("y", (d) => rows(d).birth)
     .attr("x", textX)
@@ -1192,7 +1433,7 @@ function treeChartCore(
 
   // Sin defunción (ni entierro ni incineración), no hay línea.
   node
-    .filter((d) => !!d.person.death.text)
+    .filter((d) => !M.full && !!d.person.death.text)
     .append("text")
     .attr("y", (d) => rows(d).death)
     .attr("x", textX)
@@ -1322,8 +1563,9 @@ export interface ChartShapes {
 
 export function treeChartShapes(
   ancestorTree: TreeNode | null, descendantTree: TreeNode | null, layout: ChartLayout = "vertical", withPoints = true, compact = false,
+  full = false,
 ): ChartShapes {
-  return conMedidas(compact, () => shapes(ancestorTree, descendantTree, layout, withPoints));
+  return conMedidas(compact, full, () => shapes(ancestorTree, descendantTree, layout, withPoints));
 }
 
 function shapes(ancestorTree: TreeNode | null, descendantTree: TreeNode | null, layout: ChartLayout, withPoints: boolean): ChartShapes {
@@ -1360,11 +1602,11 @@ function shapes(ancestorTree: TreeNode | null, descendantTree: TreeNode | null, 
 /** Ancho y alto (en unidades del SVG) del gráfico completo, sin dibujarlo:
  * para repartirlo en las páginas del PDF a la letra mínima. También la
  * esquina de arriba a la izquierda (x0, y0), con la persona central en (0, 0).
- * `compact`: con las cajas pequeñas. */
+ * `compact`: con las cajas pequeñas; `full`, con las completas. */
 export function measureTreeChart(
-  ancestorTree: TreeNode | null, descendantTree: TreeNode | null, layout: ChartLayout = "vertical", compact = false,
+  ancestorTree: TreeNode | null, descendantTree: TreeNode | null, layout: ChartLayout = "vertical", compact = false, full = false,
 ): { width: number; height: number; x0: number; y0: number } {
-  const { rects } = treeChartShapes(ancestorTree, descendantTree, layout, false, compact);
+  const { rects } = treeChartShapes(ancestorTree, descendantTree, layout, false, compact, full);
   if (!rects.length) return { width: 0, height: 0, x0: 0, y0: 0 };
   const x0 = Math.min(...rects.map((r) => r.x0));
   const x1 = Math.max(...rects.map((r) => r.x1));
@@ -1395,6 +1637,8 @@ export interface TreeChartOptions {
   labels: TreeChartLabels;
   /** Cajas pequeñas (PDF del árbol). */
   compact?: boolean;
+  /** Cajas completas (PDF del árbol y pantalla; 12/11/2026). */
+  full?: boolean;
   /** Con un gráfico nuevo (otra persona central), true: se mantiene la
    * ampliación de `initialZoom` pero la persona central vuelve al centro,
    * con una transición. */
@@ -1408,7 +1652,7 @@ const ZOOM_EXTENT: [number, number] = [0.05, 4];
  * (0, 0)) en un SVG nuevo de bboxWidth × bboxHeight, y lo devuelve: quien
  * llama lo pone en la página y lo quita. */
 export function renderTreeChart(ancestorTree: TreeNode | null, descendantTree: TreeNode | null, options: TreeChartOptions): SVGSVGElement {
-  return conMedidas(options.compact, () => render(ancestorTree, descendantTree, options));
+  return conMedidas(options.compact, options.full, () => render(ancestorTree, descendantTree, options));
 }
 
 function render(

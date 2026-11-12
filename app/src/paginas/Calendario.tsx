@@ -7,21 +7,24 @@
 // aniversarios (o lo elegido), con el enlace (04/11/2026). Agrupados por
 // día, con «Hoy» o «Mañana» delante; en cada día, primero los vivos (cumpleaños y aniversarios de boda) y después los fallecidos. Qué
 // fechas cuentan y los textos, en comun/aniversarios.ts, lo mismo que el
-// correo de aniversarios.
+// correo de aniversarios. De quién (Carlos, 11/11/2026): «Mi familia
+// cercana» o «Todo el árbol», al abrir lo de Ajustes; cambiarlo aquí no se
+// guarda. Sin persona vinculada, todo el árbol y sin selector.
 
 import { useMemo, useState } from "react";
-import { Checkbox, Group, SegmentedControl, Stack, Text, Title } from "@mantine/core";
+import { Anchor, Checkbox, Collapse, Group, SegmentedControl, Stack, Text, Title } from "@mantine/core";
 import { usePreferencias } from "../acceso/preferencias";
 import { useSesion } from "../acceso/sesion";
 import { useArbol } from "../arbol/contexto";
 import { textoFecha } from "../arbol/fechas";
 import type { Familia, Persona } from "../arbol/tipos";
 import { AvisoAjustes, EnlaceFamilia, EnlacePersona } from "../componentes/Enlaces";
+import { QuienEntra, useFamiliaCercana } from "../componentes/FamiliaCercana";
 import { Tarjeta } from "../componentes/Ficha";
 import { t, type Clave } from "../i18n";
 import {
-  aniversarios, hoyEn, nombreTipoAniversario, porDia, sdnDia, sumarDias, textoAniversario, TIPOS_ANIVERSARIO,
-  type Aniversario, type Dia, type TipoAniversario,
+  aniversarios, hoyEn, nombreTipoAniversario, porDia, sdnDia, soloDe, sumarDias, textoAniversario, TIPOS_ANIVERSARIO,
+  type Aniversario, type DeQuien, type Dia, type TipoAniversario,
 } from "../../../comun/aniversarios.ts";
 
 const RANGOS = ["7", "30", "90", "365"] as const;
@@ -59,14 +62,18 @@ function Linea({ a, admin }: { a: Aniversario; admin: boolean }) {
 
 export function Calendario() {
   const arbol = useArbol();
-  const { vivas, aniversarios: suscripcion } = usePreferencias();
+  const { vivas, aniversarios: suscripcion, aniversariosDe } = usePreferencias();
+  const familia = useFamiliaCercana();
+  const [deQuien, setDeQuien] = useState<DeQuien>(aniversariosDe);
+  const [verQuien, setVerQuien] = useState(false);
   const admin = useSesion().invitacion.rol === "administrador";
   const [rango, setRango] = useState<Rango>("30");
   const [tipos, setTipos] = useState<TipoAniversario[]>(TIPOS_ANIVERSARIO);
 
   const hoy = useMemo(() => hoyEn(), []);
   const todos = useMemo(() => aniversarios(arbol, vivas, hoy, hastaDe(hoy, rango)), [arbol, vivas, hoy, rango]);
-  const dias = useMemo(() => porDia(todos.filter((a) => tipos.includes(a.tipo))), [todos, tipos]);
+  const suyos = useMemo(() => (familia && deQuien === "familia" ? soloDe(todos, familia, arbol) : todos), [todos, familia, deQuien, arbol]);
+  const dias = useMemo(() => porDia(suyos.filter((a) => tipos.includes(a.tipo))), [suyos, tipos]);
 
   const rotuloDia = (d: Dia) => {
     const dif = sdnDia(d) - sdnDia(hoy);
@@ -78,6 +85,20 @@ export function Calendario() {
     <Stack gap="md" maw={860}>
       <Title order={1}>{t("menu.calendario")}</Title>
       <Group gap="lg" align="flex-end">
+        {familia && (
+          <div>
+            <Text size="sm" fw={600} mb={4} id="calendario-quien">{t("calendario.deQuien")}</Text>
+            <SegmentedControl
+              aria-labelledby="calendario-quien"
+              value={deQuien}
+              onChange={(v) => setDeQuien(v === "arbol" ? "arbol" : "familia")}
+              data={[
+                { value: "familia", label: t("aniversariosDe.familia") },
+                { value: "arbol", label: t("aniversariosDe.arbol") },
+              ]}
+            />
+          </div>
+        )}
         <div>
           <Text size="sm" fw={600} mb={4} id="calendario-rango">{t("calendario.rango")}</Text>
           <SegmentedControl
@@ -105,6 +126,24 @@ export function Calendario() {
         </div>
       </Group>
       <Text size="sm" c="dimmed">{t("calendario.ayuda")}</Text>
+      {/* De quién son (11/11/2026): quién entra en la familia cercana, y dónde se elige. */}
+      {familia ? (
+        <div>
+          {deQuien === "familia" && (
+            <>
+              <Anchor component="button" type="button" size="sm" onClick={() => setVerQuien((v) => !v)} aria-expanded={verQuien}>
+                {t("calendario.quienEntra")}
+              </Anchor>
+              <Collapse in={verQuien}>
+                <Stack mt={4} mb="xs"><QuienEntra cuantas={familia.size} /></Stack>
+              </Collapse>
+            </>
+          )}
+          <AvisoAjustes texto={t("calendario.deQuienAjustes")} seccion="aniversarios-de" />
+        </div>
+      ) : (
+        <Text size="sm" c="dimmed">{t("calendario.sinPersona")}</Text>
+      )}
       {/* Lo que hay en Ajustes sobre el correo (Carlos, 04/11/2026), o lo que tiene elegido. */}
       <AvisoAjustes texto={t(`calendario.correo.${suscripcion ?? "ninguno"}` as Clave)} seccion="aniversarios" />
 

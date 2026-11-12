@@ -38,6 +38,8 @@ export interface DatosGrafico {
   cajas: number;
   /** Con cajas pequeñas (PresentacionCajas.sencillas). */
   sencillas?: boolean;
+  /** Con cajas completas (PresentacionCajas.completas). */
+  completas?: boolean;
 }
 
 /** Cómo se presentan las cajas: los símbolos de nacimiento y defunción,
@@ -55,6 +57,10 @@ export interface PresentacionCajas extends Simbolos {
   /** Cajas pequeñas (PDF del árbol, respuesta del 25/10/2026): sin foto,
    * solo el año de cada fecha y sin lugares, y más estrechas al dibujarlas. */
   sencillas?: boolean;
+  /** Cajas completas (Carlos, 12/11/2026, «Cajas completas y ayuda del
+   * PDF»; PDF del árbol y pantalla): nada se recorta, y todas las parejas de
+   * ascendientes llevan su óvalo. Con `sencillas`, mandan las pequeñas. */
+  completas?: boolean;
   /** Quién se considera vivo (vivos.ts): las demás, como fallecidas aunque
    * no tengan defunción (decisión del 29/10/2026). */
   vivas?: ReadonlySet<string>;
@@ -89,7 +95,8 @@ export function lineaCaja(dato: DatoVital | null, simbolo: string, sustituto: bo
   const fecha = `${prefijo}${dato.fecha || t("ficha.sinFecha")}`;
   const a = anioSuelto(dato.evento?.date);
   const corto = dato.fecha && a !== null && a !== dato.fecha ? `${prefijo}${a}` : "";
-  return { text: fecha + lugar, keep: fecha.length, short: corto && corto + lugar, keepShort: corto.length };
+  // Con cajas completas, la fecha en su línea y el lugar debajo (head, place).
+  return { text: fecha + lugar, keep: fecha.length, short: corto && corto + lugar, keepShort: corto.length, head: fecha, place: dato.lugar };
 }
 
 /** «Rótulo: texto», para los textos emergentes. */
@@ -133,13 +140,15 @@ class Constructor {
       lineas.push(`${t("col.padre")}: ${nombreTipo(ref.frel)} · ${t("col.madre")}: ${nombreTipo(ref.mrel)}`);
     }
     const foto = this.simbolos.sencillas ? null : a.fotoPrincipal(p);
+    // Vacíos si faltan: el gráfico pone en su lugar «[sin apellidos]» o
+    // «[sin nombre de pila]» (TreeChartLabels). Con cajas completas, ya
+    // puestos aquí, para contar sus líneas antes de dibujar.
+    const completas = this.simbolos.completas && !sencillas;
     const caja: TreePerson = {
       handle: p.handle,
       gender: p.gender,
-      // Vacíos si faltan: el gráfico pone en su lugar «[sin apellidos]» o
-      // «[sin nombre de pila]» (TreeChartLabels).
-      nameSurname: apellidos,
-      nameGiven: nombre,
+      nameSurname: apellidos || (completas ? t("persona.sinApellidos") : ""),
+      nameGiven: nombre || (completas ? t("persona.sinNombrePila") : ""),
       grampsId: this.simbolos.ids ? p.gramps_id : undefined,
       idLine: this.simbolos.idsDebajo ? p.gramps_id : undefined,
       birth: nacimiento,
@@ -190,7 +199,8 @@ class Constructor {
   /** Ascendientes: padre arriba y madre abajo, de la primera familia de
    * padres (la principal en Gramps). Con `ovaloPadres`, entre la persona y
    * sus padres, el óvalo de esa familia (solo la persona central y solo en su
-   * bloque; 05/11/2026). */
+   * bloque; 05/11/2026); con cajas completas, el de todas las parejas de
+   * ascendientes, también en los bloques de continuación (12/11/2026). */
   ascendientes(p: Persona, nivel: number, ruta: Set<string>, id: string, central?: TreePerson, ovaloPadres = false): TreeNode {
     const nodo: TreeNode = { id, person: central ?? this.caja(p) };
     const familia = this.arbol.familiasPadres(p)[0];
@@ -203,8 +213,9 @@ class Constructor {
     ruta.add(p.handle);
     const hijos: TreeNode[] = [];
     const [padre, madre] = padres;
-    if (padre) hijos.push(this.ascendientes(padre, nivel + 1, ruta, `${id}f`));
-    if (madre) hijos.push(this.ascendientes(madre, nivel + 1, ruta, `${id}m`));
+    const todos = this.completas();
+    if (padre) hijos.push(this.ascendientes(padre, nivel + 1, ruta, `${id}f`, undefined, todos));
+    if (madre) hijos.push(this.ascendientes(madre, nivel + 1, ruta, `${id}m`, undefined, todos));
     ruta.delete(p.handle);
     if (hijos.length) nodo.children = ovaloPadres && familia ? [{ id: `${id}o`, family: this.familiaPadres(familia), children: hijos }] : hijos;
     return nodo;
@@ -358,6 +369,11 @@ class Constructor {
   cajaCentral(p: Persona): TreePerson {
     return this.caja(p);
   }
+
+  /** Cajas completas (las pequeñas mandan). */
+  completas(): boolean {
+    return !!this.simbolos.completas && !this.simbolos.sencillas;
+  }
 }
 
 /** Tramo de los hijos de la persona central: del hijo `desde` (incluido) al
@@ -378,14 +394,15 @@ export function numeroDeHijos(arbol: Arbol, p: Persona): number {
  * personas vivas cuyos datos se omiten (libro en PDF). Con `parejas` (por
  * defecto), el de ascendientes lleva también los cónyuges de la persona
  * central y sus óvalos, y el óvalo de sus padres; sin él, solo los
- * ascendientes (las páginas de continuación del PDF, de otras personas). */
+ * ascendientes (las páginas de continuación del PDF, de otras personas), con
+ * los óvalos de sus padres si las cajas son completas. */
 export function construirGrafico(
   arbol: Arbol, persona: Persona, tipo: TipoGrafico, generaciones: number, simbolos: PresentacionCajas, tramo?: TramoHijos,
   privadas?: ReadonlySet<string>, parejas = true,
 ): DatosGrafico {
   const c = new Constructor(arbol, Math.max(1, generaciones - 1), simbolos, tramo, privadas);
   const central = c.cajaCentral(persona);
-  const ascendientes = tipo !== "descendientes" ? c.ascendientes(persona, 0, new Set(), "p", central, parejas) : null;
+  const ascendientes = tipo !== "descendientes" ? c.ascendientes(persona, 0, new Set(), "p", central, parejas || c.completas()) : null;
   const descendientes = tipo !== "ascendientes"
     ? c.descendientes(persona, 0, new Set(), "p", undefined, central)
     : parejas ? c.parejas(persona, central) : null;
@@ -396,7 +413,7 @@ export function construirGrafico(
       if (caja) Object.assign(caja, { birth: SIN_LINEA, death: SIN_LINEA, photo: null });
     }
   }
-  return { ascendientes, descendientes, cajas: c.cerrar(), sencillas: !!simbolos.sencillas };
+  return { ascendientes, descendientes, cajas: c.cerrar(), sencillas: !!simbolos.sencillas, completas: c.completas() };
 }
 
 /** Generaciones válidas a partir de un texto (p. ej. de la dirección):
@@ -464,6 +481,14 @@ export type Disposicion = ChartLayout;
 export const DISPOSICIONES: Disposicion[] = CHART_LAYOUTS;
 export function leerDisposicion(texto: string | null): Disposicion {
   return texto === "horizontal" ? "horizontal" : "vertical";
+}
+
+/** Cajas del árbol en pantalla (12/11/2026): normales o completas;
+ * parámetro «cajas» de la dirección (sin él, normales). */
+export type CajasPantalla = "normales" | "completas";
+export const CAJAS_PANTALLA: CajasPantalla[] = ["normales", "completas"];
+export function leerCajas(texto: string | null): CajasPantalla {
+  return texto === "completas" ? "completas" : "normales";
 }
 
 export function leerTipo(texto: string | null): TipoGrafico {

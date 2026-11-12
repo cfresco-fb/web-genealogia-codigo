@@ -171,6 +171,18 @@ de `app/src/charts/` y `app/src/components/visuals/`:
     `TreeFamily.parents`): en `layoutHalf`, un óvalo sin caja de cónyuge en
     la mitad de ascendientes, en su propia fila (`columnExtent` mira las filas
     con óvalos en lugar de las impares de la mitad de descendientes).
+  - cajas completas (12/11/2026; `full` en `renderTreeChart`,
+    `measureTreeChart`, `treeChartShapes` y en el componente
+    `TreeChart.tsx`; `Medidas.full`): nada se recorta. El texto de cada caja
+    y de cada óvalo se parte en líneas antes de dibujar, sin el navegador
+    (`fullText`, `fullRows`, `fullOvalLines`, `wrapTokens`, con el ancho de
+    cada letra de los nombres, `NAME_WIDTHS`, y de los datos, `DATA_WIDTHS`),
+    y se dibuja tal cual, con `data-check` para avisar si algo no cabe
+    (`overflowingTexts`). Cada generación toma el alto de su caja más llena
+    (`Rows.full`); en horizontal, el ancho de cada columna a lo ancho de las
+    generaciones cambia con ella (`layoutHalf`, `boxAcross(depth)`). Los
+    óvalos con texto de una generación, del alto del más alto. Los datos
+    llevan la fecha y el lugar por separado (`TreeLine.head`, `place`).
 
 ## `chartExport/`
 

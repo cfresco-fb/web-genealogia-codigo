@@ -354,6 +354,8 @@ for (const u of USUARIOS) {
         ["tipos de aniversarios repetidos", con({ aniversariosTipos: ["boda", "boda"] })],
         ["tipo de aniversario desconocido", con({ aniversariosTipos: ["bautizo"] })],
         ["tipos de aniversarios que no son una lista", con({ aniversariosTipos: "boda" })],
+        ["aniversarios de otro alcance", con({ aniversariosDe: "rama" })],
+        ["aniversarios de quién que no es texto", con({ aniversariosDe: true })],
         ["cinco tipos de aniversarios", con({ aniversariosTipos: ["cumpleanos", "nacimiento", "defuncion", "boda", "cumpleanos"] })],
         ["sin la fecha del servidor", { personaInicio: "p1", actualizada: new Date(2000, 0, 1) }],
       ];
@@ -387,6 +389,16 @@ for (const u of USUARIOS) {
         await segun(u.invitado, setDoc(doc(db, propia), con({ aniversarios: "mensual", region: "es-ES" })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ aniversarios: "semanal", aniversariosTipos: ["cumpleanos", "boda"] })));
         await segun(u.invitado, setDoc(doc(db, propia), con({ aniversariosTipos: ["cumpleanos", "nacimiento", "defuncion", "boda"] })));
+      });
+
+      // De quién son los aniversarios (11/11/2026): familia cercana o todo
+      // el árbol; sin el campo, la familia cercana. Vale también sin correo
+      // (lo usa la página «Calendario»).
+      it(u.invitado ? "guarda de quién son los aniversarios" : "no guarda de quién son los aniversarios", async () => {
+        const db = u.ctx().firestore();
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversariosDe: "arbol" })));
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversariosDe: "familia" })));
+        await segun(u.invitado, setDoc(doc(db, propia), con({ aniversarios: "semanal", aniversariosTipos: ["boda"], aniversariosDe: "arbol" })));
       });
 
       it("no guarda valores no válidos", async () => {

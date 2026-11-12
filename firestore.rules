@@ -121,10 +121,12 @@ service cloud.firestore {
     // las generaciones con que se abre el árbol, un entero desde 2 (sin
     // límite) o «todas» (decisión del 29/10/2026); los aniversarios por
     // correo, semanal o mensual (sin el campo, ninguno; 03/11/2026), y sus
-    // tipos, una lista de 1 a 4 sin repetir (sin el campo, todos; 04/11/2026).
+    // tipos, una lista de 1 a 4 sin repetir (sin el campo, todos; 04/11/2026);
+    // y de quién son, «familia» (familia cercana) o «arbol» (sin el campo, la
+    // familia cercana; 11/11/2026).
     function preferenciasValidas() {
       let d = request.resource.data;
-      return d.keys().hasOnly(["simbolos", "personaInicio", "region", "modoColor", "generaciones", "aniversarios", "aniversariosTipos", "actualizada"])
+      return d.keys().hasOnly(["simbolos", "personaInicio", "region", "modoColor", "generaciones", "aniversarios", "aniversariosTipos", "aniversariosDe", "actualizada"])
         && (!("simbolos" in d) || simbolosValidos(d.simbolos))
         && (!("personaInicio" in d) || personaValida(d.personaInicio))
         && (!("region" in d) || (d.region is string && d.region.matches("[a-z]{2,3}-([A-Z]{2}|[0-9]{3})")))
@@ -135,6 +137,7 @@ service cloud.firestore {
               && d.aniversariosTipos.size() >= 1 && d.aniversariosTipos.size() <= 4
               && d.aniversariosTipos.toSet().size() == d.aniversariosTipos.size()
               && d.aniversariosTipos.toSet().hasOnly(["cumpleanos", "nacimiento", "defuncion", "boda"])))
+        && (!("aniversariosDe" in d) || d.aniversariosDe in ["familia", "arbol"])
         && d.actualizada == request.time;
     }
 

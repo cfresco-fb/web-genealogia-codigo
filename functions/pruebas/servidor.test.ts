@@ -31,7 +31,7 @@ import {
   copiarADrive, driveReal, DURACION_BLOQUEO_MS, ErrorDrive, FOTOS_A_LA_VEZ, RUTA_BLOQUEO as RUTA_BLOQUEO_DRIVE, RUTA_ESTADO as RUTA_ESTADO_DRIVE, type Drive,
 } from "../src/copiaDrive.ts";
 import { getApps } from "firebase-admin/app";
-import { getFirestore as getFirestoreAdmin, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, getFirestore as getFirestoreAdmin, Timestamp } from "firebase-admin/firestore";
 import { generarMiniaturas } from "../../firestore/miniaturas.ts";
 import sharp from "sharp";
 import bcrypt from "bcryptjs";
@@ -1970,11 +1970,14 @@ describe("aniversarios por correo (calendario, 03/11/2026), con el envío simula
   before(async () => {
     // Una instantánea pequeña, solo con lo que lee el cálculo: una persona
     // viva que cumple años el lunes 9 de noviembre de 2026 y una boda de
-    // dos vivos el 5 de diciembre.
+    // dos vivos el 5 de diciembre; y otra persona, sin parentesco con ellos,
+    // que cumple años el 10 de noviembre (fuera de la familia cercana de Ana).
+    const ana = { ...persona("ANA", "Ana", "e1"), family_list: ["F1"] };
+    const novio = { ...persona("NOVIO", "Novio", "e2"), family_list: ["F1"] };
     const objetos = {
-      Person: [persona("ANA", "Ana", "e1"), persona("NOVIO", "Novio", "e2")],
+      Person: [ana, novio, persona("LEJANO", "Lejano", "e4")],
       Family: [{ handle: "F1", gramps_id: "F1", father_handle: "NOVIO", mother_handle: "ANA", child_ref_list: [], type: { value: 0, string: "" }, event_ref_list: [{ ref: "e3" }] }],
-      Event: [evento("e1", 12, fecha(1956, 11, 9)), evento("e2", 12, fecha(1950, 3, 20)), evento("e3", 1, fecha(1980, 12, 5))],
+      Event: [evento("e1", 12, fecha(1956, 11, 9)), evento("e2", 12, fecha(1950, 3, 20)), evento("e3", 1, fecha(1980, 12, 5)), evento("e4", 12, fecha(1960, 11, 10))],
     };
     await cubo.file(RUTA_INSTANTANEA).save(gzipSync(JSON.stringify({ objetos })), { contentType: "application/gzip" });
     for (const d of (await db.collection("preferencias").get()).docs) await d.ref.delete();
@@ -1994,15 +1997,32 @@ describe("aniversarios por correo (calendario, 03/11/2026), con el envío simula
   it("el domingo, la semana siguiente a los semanales con invitación activa, con el enlace a cada ficha", async () => {
     correos.length = 0;
     const r = await enviarAniversarios(db, cubo, [2026, 11, 8], enviar);
-    assert.deepEqual([r.periodos, r.enviados, r.sinAniversarios, r.sinInvitacion, r.fallos], [["semanal"], 1, 0, 1, []]);
+    assert.deepEqual([r.periodos, r.enviados, r.sinAniversarios, r.sinInvitacion, r.fallos, r.deQuien], [["semanal"], 1, 0, 1, [], { familia: 1, arbol: 0 }]);
     assert.deepEqual(correos.map((m) => [m.para, m.asunto]), [[["semanal@example.com"], "Árbol familiar: aniversarios (9–15 nov)"]]);
     const texto = correos[0].texto;
     // Saludo con el nombre de su persona y, debajo, por qué le llega y dónde se cambia (07/11/2026).
-    assert.match(texto, /^Hola, Ana:\n\nTe llega este correo .* de cada semana\. Estos son los del 9 al 15 de noviembre\. .* aquí: http:\/\/localhost:5173\/ajustes\n/);
+    assert.match(texto, /^Hola, Ana:\n\nTe llega este correo .* los aniversarios de tu familia cercana de cada semana\. Estos son los del 9 al 15 de noviembre\. .* aquí: http:\/\/localhost:5173\/ajustes\n/);
     assert.match(texto, /^9 de noviembre de 2026$/m);
     assert.match(texto, /^- Cumpleaños: Ana Prueba, cumple 70 años$/m);
     assert.match(texto, /^ {2}http:\/\/localhost:5173\/persona\/ANA$/m);
     assert.match(texto, /persona\/ANA$/, "sin nada detrás del último aniversario");
+    assert.doesNotMatch(texto, /Lejano/, "solo su familia cercana (11/11/2026)");
+  });
+
+  it("con «Todo el árbol» (11/11/2026), los de todos; sin persona vinculada, también", async () => {
+    await db.doc("preferencias/semanal@example.com").update({ aniversariosDe: "arbol" });
+    await db.doc("invitaciones/sin-persona@example.com").set({ correo: "sin-persona@example.com", persona: null, rol: "familiar", estado: "activa" });
+    await db.doc("preferencias/sin-persona@example.com").set({ aniversarios: "semanal" });
+    correos.length = 0;
+    const r = await enviarAniversarios(db, cubo, [2026, 11, 8], enviar);
+    await db.doc("preferencias/semanal@example.com").update({ aniversariosDe: FieldValue.delete() });
+    await db.doc("preferencias/sin-persona@example.com").delete();
+    assert.deepEqual([r.enviados, r.deQuien], [2, { familia: 0, arbol: 2 }]);
+    for (const m of correos) {
+      assert.match(m.texto, /los aniversarios de todo el árbol de cada semana/);
+      assert.match(m.texto, /^- Cumpleaños: Lejano Prueba, cumple 66 años$/m);
+      assert.match(m.texto, /^- Cumpleaños: Ana Prueba, cumple 70 años$/m);
+    }
   });
 
   it("el último día del mes, el mes siguiente a los mensuales, en su región", async () => {

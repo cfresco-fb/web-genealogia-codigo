@@ -11,6 +11,7 @@
 // (fitTexts); expone ampliar, reducir y ver todo; disposición vertical u
 // horizontal (layout). MODIFICADO el 24/10/2026: no vuelve a dibujar al
 // cambiar el modo de color (todos los colores son variables del tema).
+// MODIFICADO el 12/11/2026: cajas completas (full).
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { zoomTransform, type ZoomTransform } from "d3-zoom";
@@ -33,6 +34,8 @@ interface TreeChartProps {
   /** Dirección (blob:) de una foto, o null si no está disponible. */
   photoUrl: (handle: string) => Promise<string | null>;
   labels: TreeChartLabels;
+  /** Cajas completas: nada se recorta (12/11/2026). */
+  full?: boolean;
 }
 
 /** The live `<svg>` (para exportarlo) y los mandos de ampliación. */
@@ -53,7 +56,7 @@ function initialScale(width: number): number {
  * own ResizeObserver. A color-scheme flip needs no re-render: every color
  * is a `var(--tema-...)` and swaps live. */
 export const TreeChart = forwardRef<TreeChartHandle, TreeChartProps>(function TreeChart({
-  ancestorTree, descendantTree, layout, selectedHandle, onSelectPerson, onOpenPerson, photoUrl, labels,
+  ancestorTree, descendantTree, layout, selectedHandle, onSelectPerson, onOpenPerson, photoUrl, labels, full = false,
 }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgOf = () => containerRef.current?.querySelector("svg") ?? null;
@@ -116,12 +119,13 @@ export const TreeChart = forwardRef<TreeChartHandle, TreeChartProps>(function Tr
       onSelectPerson,
       onOpenPerson,
       labels,
+      full,
       recenter: justSelected,
     });
     container.replaceChildren(svg);
     fitTexts(svg);
     fillThumbnails(svg, photoUrl);
-  }, [ancestorTree, descendantTree, layout, size.width, size.height, selectedHandle, onSelectPerson, onOpenPerson, photoUrl, labels, fontsReady]);
+  }, [ancestorTree, descendantTree, layout, size.width, size.height, selectedHandle, onSelectPerson, onOpenPerson, photoUrl, labels, full, fontsReady]);
 
   return <div ref={containerRef} style={{ width: "100%", height: "100%", overflow: "hidden" }} />;
 });

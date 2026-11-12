@@ -179,7 +179,9 @@ describe("Arbol", () => {
       it("con fecha completa y lugar: si no cabe, se recorta el lugar y, si ni así, va el año", () => {
         const fecha = { modifier: 0, quality: 0, calendar: 0, dateval: [3, 5, 1950, false], text: "", sortval: 1, newyear: 0 };
         const dato = { rotulo: "Nacimiento", texto: "", falta: false, fecha: "03/05/1950", lugar: "Madrid", evento: { date: fecha } as never };
-        expect(lineaCaja(dato, "n.", false)).toEqual({ text: "n. 03/05/1950, Madrid", keep: 13, short: "n. 1950, Madrid", keepShort: 7 });
+        expect(lineaCaja(dato, "n.", false)).toEqual({
+          text: "n. 03/05/1950, Madrid", keep: 13, short: "n. 1950, Madrid", keepShort: 7, head: "n. 03/05/1950", place: "Madrid",
+        });
       });
       it("solo lugar y sin nada", () => {
         expect(caja("p5")).toEqual([["n. sin datos", ""], ["f. sin fecha, Cádiz, España", ""]]);

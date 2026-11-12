@@ -17,8 +17,11 @@ export interface Propias {
   aniversarios: Suscripcion | null;
   /** Qué tipos lleva ese correo (04/11/2026); null = todos. */
   aniversariosTipos: TipoAniversario[] | null;
+  /** De quién son los aniversarios, en la página y en el correo
+   * (11/11/2026); null = la familia cercana. */
+  aniversariosDe: "arbol" | null;
 }
-export const SIN_PROPIAS: Propias = { simbolos: null, personaInicio: null, region: null, modoColor: null, generaciones: null, aniversarios: null, aniversariosTipos: null };
+export const SIN_PROPIAS: Propias = { simbolos: null, personaInicio: null, region: null, modoColor: null, generaciones: null, aniversarios: null, aniversariosTipos: null, aniversariosDe: null };
 
 /** Lo que se escribe de los símbolos: solo los campos que admiten las reglas. */
 export function camposSimbolos(p: PreferenciaSimbolos) {
@@ -47,5 +50,6 @@ export function camposPreferencias(p: Propias, existePersona: (h: string) => boo
   if (propias.generaciones) campos.generaciones = propias.generaciones;
   if (propias.aniversarios) campos.aniversarios = propias.aniversarios;
   if (propias.aniversariosTipos) campos.aniversariosTipos = propias.aniversariosTipos;
+  if (propias.aniversariosDe) campos.aniversariosDe = propias.aniversariosDe;
   return { campos, propias };
 }

@@ -97,6 +97,16 @@ export function modoAlCambiarPapel(antes: PapelArbol, despues: PapelArbol, modo:
   if (!conUnaPagina(despues) && modo === "unaPagina") return "continuacion";
   return modo;
 }
+/** Las cajas del PDF del árbol (Carlos, 12/11/2026, «Cajas completas y ayuda
+ * del PDF»): normales, pequeñas o completas. */
+export type CajasPdf = "normales" | "pequenas" | "completas";
+export const CAJAS_PDF: CajasPdf[] = ["normales", "pequenas", "completas"];
+/** Con qué cajas abre el diálogo: Completas si la pantalla está así; si no,
+ * las recordadas en el navegador, Normales o Pequeñas (Completas no se
+ * recuerda nunca). */
+export const cajasAlAbrir = (completasEnPantalla: boolean, pequenasRecordadas: boolean): CajasPdf =>
+  completasEnPantalla ? "completas" : pequenasRecordadas ? "pequenas" : "normales";
+
 /** A4 y Letter, casi iguales: desde uno no se propone el otro como papel en
  * el que cabe (el siguiente es A3). */
 const GEMELO: Partial<Record<PapelArbol, PapelArbol>> = { A4: "Letter", Letter: "A4" };
@@ -280,7 +290,8 @@ function borde(datos: DatosGrafico): { caja: TreePerson; direccion: Direccion }[
   return out;
 }
 
-const tamanoDe = (d: DatosGrafico, disposicion: Disposicion) => measureTreeChart(d.ascendientes, d.descendientes, disposicion, d.sencillas);
+const tamanoDe = (d: DatosGrafico, disposicion: Disposicion) =>
+  measureTreeChart(d.ascendientes, d.descendientes, disposicion, d.sencillas, d.completas);
 
 interface Opciones {
   arbol: Arbol;
@@ -541,8 +552,8 @@ export interface GeometriaArbol {
 
 export function geometria(datos: DatosGrafico, disposicion: Disposicion): GeometriaArbol {
   return {
-    tamano: measureTreeChart(datos.ascendientes, datos.descendientes, disposicion, datos.sencillas),
-    formas: treeChartShapes(datos.ascendientes, datos.descendientes, disposicion, true, datos.sencillas),
+    tamano: measureTreeChart(datos.ascendientes, datos.descendientes, disposicion, datos.sencillas, datos.completas),
+    formas: treeChartShapes(datos.ascendientes, datos.descendientes, disposicion, true, datos.sencillas, datos.completas),
   };
 }
 

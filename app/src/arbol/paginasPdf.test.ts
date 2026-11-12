@@ -7,9 +7,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { measureTreeChart, treeChartShapes, type TreeNode } from "../gramps-connect/graficos/charts/treeChart";
 import { Arbol } from "./arbol";
 import { prepararFechas } from "./fechas";
-import { construirGrafico } from "./grafico";
+import { construirGrafico, type PresentacionCajas } from "./grafico";
 import {
-  avisoPapel, CABECERA_PRIMERA_MM, CABECERA_PRIMERA_SIN_SUBTITULO_MM, componer, conUnaPagina, dondeCabeUnaPagina, modoAlCambiarPapel, PAPELES,
+  avisoPapel, cajasAlAbrir, CABECERA_PRIMERA_MM, hoja, CABECERA_PRIMERA_SIN_SUBTITULO_MM, componer, conUnaPagina, dondeCabeUnaPagina, modoAlCambiarPapel, PAPELES,
   PAPELES_UNA_PAGINA_Y_ROLLO, ESCALA_MAXIMA, ESPACIO_COMPLETO,
   MARGEN_MM, PIE_MM, type Espacio, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT, LETRAS_UNA_PAGINA_PT,
   planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO, ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type Bloque, type Plan,
@@ -699,5 +699,69 @@ describe("PDF sin subtítulo o sin pie: su sitio es para el árbol (decisión de
     const o = { arbol, persona: arbol.persona("r")!, tipo: "ascendientes" as const, generaciones: 8, simbolos: ABREV, disposicion: "horizontal" as const, orientacion: "auto" as const };
     const ocho = construirGrafico(arbol, o.persona, "ascendientes", 8, ABREV);
     expect(rangoDonde(dondeCabeUnaPagina({ ...o, espacio: NADA }, ocho))).toBeLessThanOrEqual(rangoDonde(dondeCabeUnaPagina(o, ocho)));
+  });
+});
+
+describe("cajas completas (Carlos, 12/11/2026)", () => {
+  const COMPLETAS: PresentacionCajas = { ...ABREV, completas: true };
+  const planCon = (h: string, tipoG: "ascendientes" | "descendientes" | "ambos", g: number, disposicion: "vertical" | "horizontal", simbolos = COMPLETAS) =>
+    planificarPaginas({
+      arbol, persona: arbol.persona(h)!, tipo: tipoG, generaciones: g, simbolos, papel: "A4", orientacion: "auto", disposicion,
+      continua: (n) => `continúa en la pág. ${n}`,
+    });
+  const pisan = (a: { x0: number; x1: number; y0: number; y1: number }, b: typeof a) =>
+    a.x0 < b.x1 - 0.01 && b.x0 < a.x1 - 0.01 && a.y0 < b.y1 - 0.01 && b.y0 < a.y1 - 0.01;
+
+  for (const disposicion of ["vertical", "horizontal"] as const) {
+    it(`continuación en ${disposicion}: óvalos en todos los bloques; nada se pisa ni se sale de la página, y todo a 8 puntos`, () => {
+      for (const [h, tipoG, g] of [["r", "ascendientes", 8], ["m", "descendientes", 2], ["q", "ascendientes", 6]] as const) {
+        const p = planCon(h, tipoG, g, disposicion);
+        const normal = planCon(h, tipoG, g, disposicion, ABREV);
+        expect(p.paginas.length).toBeGreaterThanOrEqual(normal.paginas.length);
+        expect(letraMinima(p)!.pt).toBeGreaterThanOrEqual(LETRA_MINIMA_PT);
+        const { ancho, alto } = hoja("A4", p.orientacion);
+        for (const pagina of p.paginas) {
+          for (const [j, b] of pagina.bloques.entries()) {
+            expect(b.datos.completas).toBe(true);
+            // Cada persona de los ascendientes con padres dibujados, con su óvalo.
+            for (const n of cajas(b.datos.ascendientes)) {
+              if (n.person && n.children?.length) expect(n.children.every((c) => c.family?.parents)).toBe(true);
+            }
+            const { rects } = treeChartShapes(b.datos.ascendientes, b.datos.descendientes, disposicion, false, false, true);
+            for (const [i, a] of rects.entries()) for (const c of rects.slice(i + 1)) expect(pisan(a, c)).toBe(false);
+            expect(b.tamano).toEqual(measureTreeChart(b.datos.ascendientes, b.datos.descendientes, disposicion, false, true));
+            const pos = pagina.composicion.posiciones[j];
+            expect(pos.x).toBeGreaterThanOrEqual(MARGEN_MM - 1e-6);
+            expect(pos.x + pos.ancho).toBeLessThanOrEqual(ancho - MARGEN_MM + 1e-6);
+            expect(pos.y).toBeGreaterThanOrEqual(MARGEN_MM - 1e-6);
+            expect(pos.y + pos.alto).toBeLessThanOrEqual(alto - MARGEN_MM + 1e-6);
+          }
+        }
+      }
+    });
+  }
+
+  it("mosaico y una sola página cuentan los altos nuevos", () => {
+    for (const disposicion of ["vertical", "horizontal"] as const) {
+      const normal = construirGrafico(arbol, arbol.persona("r")!, "ascendientes", 5, ABREV);
+      const completo = construirGrafico(arbol, arbol.persona("r")!, "ascendientes", 5, COMPLETAS);
+      const gn = geometria(normal, disposicion);
+      const gc = geometria(completo, disposicion);
+      // Con los óvalos de todas las parejas, más largo por el eje de las generaciones.
+      if (disposicion === "vertical") expect(gc.tamano.height).toBeGreaterThan(gn.tamano.height);
+      else expect(gc.tamano.width).toBeGreaterThan(gn.tamano.width);
+      expect(gc.formas.rects.length).toBeGreaterThan(gn.formas.rects.length);
+      expect(planificarMosaico(gc, "A4", "auto").hojas.length).toBeGreaterThanOrEqual(planificarMosaico(gn, "A4", "auto").hojas.length);
+      const una = (d: typeof normal) => planificarUnaPagina(d, arbol.persona("r")!, "ascendientes", 5, disposicion, "A3", "auto").plan.paginas[0];
+      expect(una(completo).composicion.pt).toBeLessThanOrEqual(una(normal).composicion.pt);
+      expect(una(completo).bloques[0].tamano).toMatchObject({ width: gc.tamano.width, height: gc.tamano.height });
+    }
+  });
+
+  it("el diálogo abre en Completas si la pantalla lo está; si no, con lo recordado (Normales o Pequeñas)", () => {
+    expect(cajasAlAbrir(true, false)).toBe("completas");
+    expect(cajasAlAbrir(true, true)).toBe("completas");
+    expect(cajasAlAbrir(false, true)).toBe("pequenas");
+    expect(cajasAlAbrir(false, false)).toBe("normales");
   });
 });

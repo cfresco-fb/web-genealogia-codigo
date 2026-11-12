@@ -27,11 +27,11 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createTransport } from "nodemailer";
 import {
-  diaSemana, hoyEn, leerTiposCorreo, periodosDelDia, sumarDias, SUSCRIPCIONES, aniversarios, type Dia, type Suscripcion,
+  diaSemana, hoyEn, leerDeQuien, leerTiposCorreo, periodosDelDia, soloDe, sumarDias, SUSCRIPCIONES, aniversarios, type Dia, type Suscripcion,
 } from "../comun/aniversarios.ts";
 import { invitacionActiva } from "../comun/altas.ts";
 import { PROYECTO_PRODUCCION } from "../comun/proyectos.ts";
-import { leerDatosAniversarios, leerNombreArbol, mensajeAniversarios, REGION_POR_DEFECTO } from "../functions/src/aniversarios.ts";
+import { leerDatosAniversarios, leerNombreArbol, mensajeAniversarios, personasDeUnUsuario, REGION_POR_DEFECTO } from "../functions/src/aniversarios.ts";
 import { confirmar, conectar, elegirDestino, enProduccion } from "./comun.ts";
 import { normalizarCorreo } from "./invitaciones.ts";
 
@@ -107,15 +107,20 @@ async function principal() {
   const region = typeof prefs.region === "string" && prefs.region ? prefs.region : REGION_POR_DEFECTO;
   const tipos = leerTiposCorreo(prefs.aniversariosTipos);
 
-  const { datos, vivas } = await leerDatosAniversarios(db, cubo);
+  const leidos = await leerDatosAniversarios(db, cubo);
+  const { datos, vivas } = leidos;
+  const persona = typeof invitacion?.persona === "string" ? invitacion.persona : null;
+  // Su familia cercana o todo el árbol (Carlos, 11/11/2026).
+  const suyas = personasDeUnUsuario(leerDeQuien(prefs.aniversariosDe), persona, leidos);
+  console.log(suyas ? `De su familia cercana (${suyas.size} personas).` : "De todo el árbol.");
   const todos = aniversarios(datos, vivas, periodo.desde, periodo.hasta);
-  const lista = tipos ? todos.filter((a) => tipos.includes(a.tipo)) : todos;
+  const deFamilia = suyas ? soloDe(todos, suyas, datos) : todos;
+  const lista = tipos ? deFamilia.filter((a) => tipos.includes(a.tipo)) : deFamilia;
   if (!lista.length) {
     console.log("Sin aniversarios de sus tipos en ese periodo: la función no enviaría ningún correo.");
     return;
   }
-  const persona = typeof invitacion?.persona === "string" ? invitacion.persona : null;
-  const m = mensajeAniversarios(correo, periodo, lista, region, datos, await leerNombreArbol(db), persona);
+  const m = mensajeAniversarios(correo, periodo, lista, region, datos, await leerNombreArbol(db), persona, suyas ? "familia" : "arbol");
   console.log(`\nPara: ${correo}\nAsunto: ${m.asunto}\n\n${m.texto}\n`);
   if (orden === "ver") {
     console.log("(Solo ver: no se ha enviado nada.)");

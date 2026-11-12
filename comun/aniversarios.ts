@@ -95,9 +95,25 @@ interface Origen extends Omit<Aniversario, "fecha" | "anios" | "anioEvento"> {
   dia: Dia;
 }
 
+/** Las familias con divorcio o separación (el evento propio «@separacion»),
+ * tengan fecha o no: sus bodas no salen, y en la familia cercana el otro
+ * miembro es expareja (comun/familiaCercana.ts; Carlos, 11/11/2026). */
+export function familiasSeparadas(datos: Pick<DatosAniversarios, "familias" | "eventos">): Set<string> {
+  const r = new Set<string>();
+  for (const f of datos.familias.values()) {
+    const separada = f.event_ref_list.some((x) => {
+      const e = datos.eventos.get(x.ref);
+      return !!e && (e.type.value === EV_DIVORCIO || (e.type.value === EV_PERSONALIZADO && e.type.string === EVENTO_SEPARACION));
+    });
+    if (separada) r.add(f.handle);
+  }
+  return r;
+}
+
 /** Los eventos de los que salen aniversarios, con su fecha exacta. */
 function origenes(datos: DatosAniversarios, vivas: ReadonlySet<string>): Origen[] {
   const r: Origen[] = [];
+  const separadas = familiasSeparadas(datos);
   const fechaDe = (ref: { ref: string } | undefined, tipo: number) => {
     const ev = ref && datos.eventos.get(ref.ref);
     return ev && ev.type.value === tipo ? fechaExacta(ev.date) : null;
@@ -111,9 +127,8 @@ function origenes(datos: DatosAniversarios, vivas: ReadonlySet<string>): Origen[
   }
   for (const f of datos.familias.values()) {
     if (f.type.value !== FAM_CASADOS && f.type.value !== FAM_UNION_CIVIL) continue;
+    if (separadas.has(f.handle)) continue;
     const eventos = f.event_ref_list.map((x) => datos.eventos.get(x.ref)).filter((e) => !!e);
-    const separados = eventos.some((e) => e.type.value === EV_DIVORCIO || (e.type.value === EV_PERSONALIZADO && e.type.string === EVENTO_SEPARACION));
-    if (separados) continue;
     // El primer matrimonio, como en la ficha (Arbol.pareja).
     const boda = eventos.find((e) => e.type.value === EV_MATRIMONIO);
     const dia = fechaExacta(boda?.date);
@@ -150,6 +165,17 @@ export function aniversarios(datos: DatosAniversarios, vivas: ReadonlySet<string
   return r.map(({ sdn: _, ...a }) => a);
 }
 
+/** Solo los de un conjunto de personas (la familia cercana): los de cada
+ * persona si está dentro; las bodas, si está dentro cualquiera de los dos
+ * (Carlos, 11/11/2026). */
+export function soloDe(lista: Aniversario[], personas: ReadonlySet<string>, datos: Pick<DatosAniversarios, "familias">): Aniversario[] {
+  return lista.filter((a) => {
+    if (a.persona) return personas.has(a.persona);
+    const f = a.familia ? datos.familias.get(a.familia) : undefined;
+    return !!f && [f.father_handle, f.mother_handle].some((h) => !!h && personas.has(h));
+  });
+}
+
 /** Agrupados por día, en orden. */
 export function porDia(lista: Aniversario[]): { fecha: Dia; aniversarios: Aniversario[] }[] {
   const r: { fecha: Dia; aniversarios: Aniversario[] }[] = [];
@@ -170,7 +196,8 @@ export type ClaveAniversarios =
   | "calendario.fallecio" | "calendario.fallecioUno" | "calendario.aniversarioBoda" | "calendario.aniversarioBodaUno"
   | "calendario.seCasaron" | "calendario.seCasaronUno"
   | "calendario.asunto" | "calendario.correoSaludo" | "calendario.correoSaludoSinNombre"
-  | "calendario.correoIntroSemana" | "calendario.correoIntroMes" | "calendario.correoSemana" | "calendario.correoMes";
+  | "calendario.correoIntroSemana" | "calendario.correoIntroMes" | "calendario.correoSemana" | "calendario.correoMes"
+  | "calendario.correoQuien.familia" | "calendario.correoQuien.arbol";
 export type Traducir = (clave: ClaveAniversarios, valores?: Record<string, string | number>) => string;
 
 /** «Cumpleaños», «Nacimiento», «Defunción» o «Boda». */
@@ -189,6 +216,13 @@ export function textoAniversario(a: Aniversario, t: Traducir): string {
 // ---- Correo ----
 
 export type Suscripcion = "semanal" | "mensual";
+
+/** De quién son los aniversarios (Carlos, 11/11/2026): «familia», la familia
+ * cercana (comun/familiaCercana.ts); «arbol», todo el árbol. */
+export type DeQuien = "familia" | "arbol";
+/** Campo `aniversariosDe` de las preferencias: sin él (o si no vale), la
+ * familia cercana. */
+export const leerDeQuien = (v: unknown): DeQuien => (v === "arbol" ? "arbol" : "familia");
 export const SUSCRIPCIONES: Suscripcion[] = ["semanal", "mensual"];
 
 export interface Periodo {
@@ -245,13 +279,13 @@ export function periodoCorreo(p: Periodo, region: string, t: Traducir): string {
 }
 
 /** El principio del correo (Carlos, 07/11/2026): el saludo, con el apodo o
- * el nombre de pila (sin nombre, «Hola:»), y por qué le llega, qué periodo
- * es y dónde se cambia. */
-export function introCorreo(p: Periodo, region: string, t: Traducir, nombre: string, urlAjustes: string): string[] {
+ * el nombre de pila (sin nombre, «Hola:»), y por qué le llega, de quién son
+ * (11/11/2026), qué periodo es y dónde se cambia. */
+export function introCorreo(p: Periodo, region: string, t: Traducir, nombre: string, urlAjustes: string, deQuien: DeQuien): string[] {
   const clave = p.suscripcion === "mensual" ? "calendario.correoIntroMes" : "calendario.correoIntroSemana";
   return [
     nombre ? t("calendario.correoSaludo", { nombre }) : t("calendario.correoSaludoSinNombre"),
     "",
-    t(clave, { periodo: periodoCorreo(p, region, t), url: urlAjustes }),
+    t(clave, { quien: t(`calendario.correoQuien.${deQuien}`), periodo: periodoCorreo(p, region, t), url: urlAjustes }),
   ];
 }

@@ -158,12 +158,12 @@ test("correo: asunto y fechas en la región del usuario", () => {
   assert.equal(periodoCorreo(cruza, "es-ES", t), "del 30 de noviembre al 6 de diciembre");
   assert.equal(periodoCorreo(periodosDelDia([2026, 12, 27])[0], "es-ES", t), "del 28 de diciembre de 2026 al 3 de enero de 2027");
   assert.equal(periodoCorreo(mes, "es-ES", t), "de diciembre");
-  assert.deepEqual(introCorreo(semana, "es-ES", t, "Pepa", "https://web/ajustes"), [
+  assert.deepEqual(introCorreo(semana, "es-ES", t, "Pepa", "https://web/ajustes", "familia"), [
     "Hola, Pepa:", "",
-    "Te llega este correo porque has pedido en los ajustes de la web los aniversarios de cada semana. Estos son los del 9 al 15 de noviembre. Puedes cambiar lo que recibes o quitar este correo aquí: https://web/ajustes",
+    "Te llega este correo porque has pedido en los ajustes de la web los aniversarios de tu familia cercana de cada semana. Estos son los del 9 al 15 de noviembre. Puedes cambiar lo que recibes o quitar este correo aquí: https://web/ajustes",
   ]);
-  assert.equal(introCorreo(mes, "es-ES", t, "", "u")[0], "Hola:");
-  assert.match(introCorreo(mes, "es-ES", t, "", "u")[2], /de cada mes\. Estos son los de diciembre\./);
+  assert.equal(introCorreo(mes, "es-ES", t, "", "u", "arbol")[0], "Hola:");
+  assert.match(introCorreo(mes, "es-ES", t, "", "u", "arbol")[2], /los aniversarios de todo el árbol de cada mes\. Estos son los de diciembre\./);
   assert.equal(fechaLarga("es-ES", [2026, 11, 9]), "9 de noviembre de 2026");
   assert.equal(fechaLarga("en-US", [2026, 11, 9]), "November 9, 2026");
 });

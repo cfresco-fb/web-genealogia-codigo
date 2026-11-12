@@ -10,7 +10,9 @@
  * de comun/aniversarios.ts (el mismo de la página «Calendario») sobre la
  * instantánea de Storage, con quién se considera vivo según los parámetros
  * del administrador (configuracion/vivos), solo los tipos que eligió cada
- * uno (todos, si no eligió; Carlos, 04/11/2026). Correo de texto, con las fechas
+ * uno (todos, si no eligió; Carlos, 04/11/2026) y solo de su familia cercana
+ * (comun/familiaCercana.ts), salvo que eligiera «Todo el árbol» o no tenga
+ * persona vinculada (Carlos, 11/11/2026). Correo de texto, con las fechas
  * en el formato largo de la región de cada usuario (la elegida en Ajustes
  * o, si no eligió ninguna, la de España) y el enlace a cada ficha. Sin
  * aniversarios de sus tipos en el periodo, no se envía nada. Un fallo con un usuario no
@@ -19,12 +21,14 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { gunzipSync } from "node:zlib";
 import {
-  aniversarios, asuntoCorreo, fechaLarga, introCorreo, leerTiposCorreo, nombreTipoAniversario, periodosDelDia, porDia, SUSCRIPCIONES,
-  textoAniversario, type Aniversario, type DatosAniversarios, type Dia, type Periodo, type Suscripcion, type TipoAniversario,
-  type Traducir,
+  aniversarios, asuntoCorreo, familiasSeparadas, fechaLarga, introCorreo, leerDeQuien, leerTiposCorreo, nombreTipoAniversario,
+  periodosDelDia, porDia, soloDe, SUSCRIPCIONES, textoAniversario, type Aniversario, type DatosAniversarios, type DeQuien, type Dia,
+  type Periodo, type Suscripcion, type TipoAniversario, type Traducir,
 } from "../../comun/aniversarios.ts";
+import { familiaCercana } from "../../comun/familiaCercana.ts";
+import { Indice } from "../../comun/indice.ts";
 import { invitacionActiva } from "../../comun/altas.ts";
-import { esMapa, type ObjetoGramps } from "../../comun/gramps.ts";
+import { esMapa, type ObjetoGramps, type Tipo } from "../../comun/gramps.ts";
 import {
   PARAMETROS_VIVOS_POR_DEFECTO, personasVivas, validarParametrosVivos, type EventoVivos, type FamiliaVivos, type PersonaVivos,
 } from "../../comun/vivos.ts";
@@ -75,15 +79,16 @@ export function nombreSaludo(p: ObjetoGramps | null | undefined): string {
 }
 
 /** El correo de un periodo para un usuario: `arbol`, el nombre del árbol;
- * `persona`, el handle de la persona de su invitación. */
+ * `persona`, el handle de la persona de su invitación; `deQuien`, si son
+ * los de su familia cercana o los de todo el árbol. */
 export function mensajeAniversarios(
   para: string, p: Periodo, lista: Aniversario[], region: string, datos: DatosAniversarios & { nombres: Map<string, ObjetoGramps> },
-  arbol: string, persona: string | null,
+  arbol: string, persona: string | null, deQuien: DeQuien,
 ): { para: string[]; asunto: string; texto: string } {
   const web = urlWeb();
   const nombre = (h: string | null | undefined) => (h && nombrePersona(datos.nombres.get(h) ?? null)) || "";
   const saludo = nombreSaludo(persona ? datos.nombres.get(persona) : null);
-  const lineas: string[] = [...introCorreo(p, region, traducir, saludo, `${web}/ajustes`), ""];
+  const lineas: string[] = [...introCorreo(p, region, traducir, saludo, `${web}/ajustes`, deQuien), ""];
   for (const { fecha, aniversarios: delDia } of porDia(lista)) {
     lineas.push(fechaLarga(region, fecha));
     for (const a of delDia) {
@@ -108,6 +113,18 @@ export interface ResultadoAniversarios {
   /** Suscritos sin invitación activa (no se les manda). */
   sinInvitacion: number;
   fallos: { correo: string; error: string }[];
+  /** De los suscritos con invitación activa, cuántos reciben su familia
+   * cercana y cuántos todo el árbol (por elección o sin persona). */
+  deQuien: Record<DeQuien, number>;
+}
+
+/** De quién son los aniversarios de un usuario: su familia cercana o, si
+ * eligió «Todo el árbol» o no tiene persona vinculada (o ya no está en el
+ * árbol), null, todos. También lo usa el ensayo (firestore/aniversarios.ts). */
+export function personasDeUnUsuario(
+  eleccion: DeQuien, persona: string | null, d: Awaited<ReturnType<typeof leerDatosAniversarios>>,
+): Set<string> | null {
+  return eleccion === "familia" ? familiaCercana(d.indice, persona, d.separadas) : null;
 }
 
 /** La instantánea y quién se considera vivo según los parámetros del
@@ -115,23 +132,32 @@ export interface ResultadoAniversarios {
  * (firestore/aniversarios.ts). */
 export async function leerDatosAniversarios(db: Firestore, cubo: Cubo) {
   const [gz] = await sinAvisoDeOyentes(() => cubo.file(RUTA_INSTANTANEA).download());
-  const datos = datosDeInstantanea(JSON.parse(gunzipSync(gz).toString("utf8")) as Instantanea);
+  const inst = JSON.parse(gunzipSync(gz).toString("utf8")) as Instantanea;
+  const datos = datosDeInstantanea(inst);
+  // Para la familia cercana: el índice de relaciones, con el mismo código
+  // que el servidor y la web, y las familias con divorcio o separación.
+  const indice = Indice.desdeObjetos(inst.objetos as Partial<Record<Tipo, ObjetoGramps[]>>);
+  const separadas = familiasSeparadas(datos);
   const conf = (await db.doc("configuracion/vivos").get()).data();
   const { actualizada: _, ...parametros } = conf ?? {};
   const vivas = personasVivas(datos, validarParametrosVivos(parametros) ?? PARAMETROS_VIVOS_POR_DEFECTO);
-  return { datos, vivas };
+  return { datos, vivas, indice, separadas };
 }
 
 /** Manda los correos de aniversarios que tocan `hoy` (en Madrid). */
 export async function enviarAniversarios(db: Firestore, cubo: Cubo, hoy: Dia, enviar: Enviar): Promise<ResultadoAniversarios> {
   const periodos = periodosDelDia(hoy);
-  const r: ResultadoAniversarios = { periodos: periodos.map((p) => p.suscripcion), enviados: 0, sinAniversarios: 0, sinInvitacion: 0, fallos: [] };
+  const r: ResultadoAniversarios = {
+    periodos: periodos.map((p) => p.suscripcion), enviados: 0, sinAniversarios: 0, sinInvitacion: 0, fallos: [], deQuien: { familia: 0, arbol: 0 },
+  };
   if (!periodos.length) return r;
   const prefs = await db.collection("preferencias").where("aniversarios", "in", periodos.map((p) => p.suscripcion)).get();
   if (prefs.empty) return r;
 
   // Solo los que tienen invitación activa.
-  const suscritos: { correo: string; suscripcion: Suscripcion; region: string; tipos: TipoAniversario[] | null; persona: string | null }[] = [];
+  const suscritos: {
+    correo: string; suscripcion: Suscripcion; region: string; tipos: TipoAniversario[] | null; persona: string | null; deQuien: DeQuien;
+  }[] = [];
   for (const d of prefs.docs) {
     const suscripcion = SUSCRIPCIONES.find((s) => s === d.get("aniversarios"));
     if (!suscripcion) continue;
@@ -145,23 +171,29 @@ export async function enviarAniversarios(db: Firestore, cubo: Cubo, hoy: Dia, en
       correo: d.id, suscripcion, region: typeof region === "string" && region ? region : REGION_POR_DEFECTO,
       tipos: leerTiposCorreo(d.get("aniversariosTipos")),
       persona: typeof invitacion?.persona === "string" ? invitacion.persona : null,
+      deQuien: leerDeQuien(d.get("aniversariosDe")),
     });
   }
   if (!suscritos.length) return r;
 
-  const { datos, vivas } = await leerDatosAniversarios(db, cubo);
+  const leidos = await leerDatosAniversarios(db, cubo);
+  const { datos, vivas } = leidos;
   const arbol = await leerNombreArbol(db);
+  const personas = new Map(suscritos.map((u) => [u.correo, personasDeUnUsuario(u.deQuien, u.persona, leidos)]));
+  for (const p of personas.values()) r.deQuien[p ? "familia" : "arbol"]++;
 
   for (const p of periodos) {
     const todos = aniversarios(datos, vivas, p.desde, p.hasta);
     for (const u of suscritos.filter((x) => x.suscripcion === p.suscripcion)) {
-      const lista = u.tipos ? todos.filter((a) => u.tipos!.includes(a.tipo)) : todos;
+      const suyas = personas.get(u.correo)!;
+      const deFamilia = suyas ? soloDe(todos, suyas, datos) : todos;
+      const lista = u.tipos ? deFamilia.filter((a) => u.tipos!.includes(a.tipo)) : deFamilia;
       if (!lista.length) {
         r.sinAniversarios++;
         continue;
       }
       try {
-        await enviar(mensajeAniversarios(u.correo, p, lista, u.region, datos, arbol, u.persona));
+        await enviar(mensajeAniversarios(u.correo, p, lista, u.region, datos, arbol, u.persona, suyas ? "familia" : "arbol"));
         r.enviados++;
       } catch (e) {
         r.fallos.push({ correo: u.correo, error: e instanceof Error ? e.message : String(e) });

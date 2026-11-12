@@ -45,6 +45,7 @@ async function prepararArbol(datos: DatosGrafico, central: string, dibujo: Dibuj
     const svg = renderTreeChart(datos.ascendientes, datos.descendientes, {
       bboxWidth: 1000, bboxHeight: 800, layout: dibujo.layout, initialScale: 1, selectedHandle: central, labels: dibujo.labels,
       compact: datos.sencillas,
+      full: datos.completas,
     });
     host.appendChild(svg);
     fitTexts(svg);

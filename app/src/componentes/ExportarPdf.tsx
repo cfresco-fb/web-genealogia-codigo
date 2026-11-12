@@ -13,7 +13,12 @@
 // principal, igual que las demás), también en papel de rollo de 91,4 cm, y, si ni así cabe, la propuesta de un papel mayor o de
 // menos generaciones, la otra disposición o las cajas pequeñas. Las cajas
 // pequeñas (sin fotos ni lugares, solo años) se pueden elegir en cualquier
-// reparto (respuestas del 25/10/2026). Las generaciones empiezan con las de
+// reparto (respuestas del 25/10/2026); desde el 12/11/2026, en el selector
+// «Cajas» (Normales, Pequeñas, Completas), que abre en Completas si la
+// pantalla está así y, si no, con lo último elegido entre Normales y
+// Pequeñas (Completas no se recuerda). Junto a cada opción que no se explica
+// sola, una «i» con un bocadillo y un dibujo (AyudaPdf.tsx); debajo de las
+// formas de reparto, solo sus cifras. Las generaciones empiezan con las de
 // la pantalla y se pueden cambiar aquí, también a «Todas»; el administrador
 // puede incluir los identificadores, en su línea bajo el nombre (decisiones
 // del 30/10/2026). El reparto lo calcula
@@ -24,6 +29,7 @@
 
 import { useMemo, useState } from "react";
 import { Alert, Button, Checkbox, Group, Modal, Radio, SegmentedControl, Select, Stack, Text, TextInput } from "@mantine/core";
+import { AyudaPdf } from "./AyudaPdf";
 import type { PaperOrientation } from "../gramps-connect/chartExport/paperSizes";
 import type { TreeChartLabels } from "../gramps-connect/graficos/charts/treeChart";
 import type { Arbol } from "../arbol/arbol";
@@ -35,16 +41,18 @@ import {
 import {
   avisoPapel, conUnaPagina, dondeCabeUnaPagina, modoAlCambiarPapel, geometria, letraMinima, LETRA_MINIMA_PT, LETRA_MINIMA_UNA_PAGINA_PT,
   LETRAS_UNA_PAGINA_PT, PAPELES, planificarMosaico, planificarPaginas, planificarUnaPagina, rangoDonde, ROLLO,
-  ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, type Espacio, type ModoPdf, type PaginaPlan, type Papel, type PapelArbol, type Plan,
+  ROLLO_ANCHO_MM, ROLLO_LARGO_MAXIMO_MM, textosPlan, CAJAS_PDF, cajasAlAbrir, type CajasPdf, type Espacio, type ModoPdf, type PaginaPlan, type Papel, type PapelArbol, type Plan,
 } from "../arbol/paginasPdf";
 import type { Persona } from "../arbol/tipos";
 import { textoMomento } from "../arbol/fechas";
 import { formatoNumero, t, type Clave } from "../i18n";
+import { ConAyuda } from "./AyudaPdf";
 import { AvisoAjustes } from "./Enlaces";
 import { OpcionDisposicion } from "./OpcionDisposicion";
 import { exportarMosaico, exportarPaginas } from "./pdfArbol";
 
 const ORIENTACIONES: PaperOrientation[] = ["auto", "portrait", "landscape"];
+
 
 /** Nombre de un papel en la lista («A2», «Rollo de 91,4 cm») y dentro de
  * una frase («A2», «el rollo de 91,4 cm»). */
@@ -60,7 +68,8 @@ interface Opciones {
   modo: ModoPdf;
   /** Letra mínima en «Una sola página». */
   letraUna: number;
-  /** Cajas pequeñas: sin fotos ni lugares, solo años. */
+  /** Cajas pequeñas: sin fotos ni lugares, solo años (lo último elegido
+   * entre Normales y Pequeñas; Completas no se recuerda). */
   sencillas: boolean;
 }
 const POR_DEFECTO: Opciones = {
@@ -99,6 +108,8 @@ interface Props {
   generaciones: Generaciones;
   /** La del árbol en pantalla; se puede cambiar aquí. */
   disposicion: Disposicion;
+  /** Si la pantalla está en cajas completas: entonces el diálogo abre así. */
+  completas?: boolean;
   /** Símbolos de las cajas (las fechas, en el PDF, abreviadas; los IDs,
    * solo con la casilla). */
   presentacion: PresentacionCajas;
@@ -125,9 +136,11 @@ function nombreFichero(texto: string): string {
 
 function Contenido({
   alCerrar, alAvisar, arbol, persona, tipo, generaciones: generacionesPantalla, disposicion: inicial, presentacion, labels, photoUrl,
-  subtitulo: subtituloInicial,
+  subtitulo: subtituloInicial, completas: completasPantalla = false,
 }: Props) {
   const [opciones, setOpciones] = useState(leerOpciones);
+  // Completas, solo si la pantalla lo está o se elige aquí: no se recuerda.
+  const [completas, setCompletas] = useState(completasPantalla);
   const admin = useSesion().invitacion.rol === "administrador";
   // Sin recordar: cada vez, desmarcada (decisión del 30/10/2026).
   const [conIds, setConIds] = useState(false);
@@ -144,7 +157,13 @@ function Contenido({
   const [pieEscrito, setPieEscrito] = useState<string | null>(null);
   const [progreso, setProgreso] = useState<{ hecho: number; total: number } | null>(null);
   const [error, setError] = useState(false);
-  const { papel, orientacion, letraUna, sencillas } = opciones;
+  const { papel, orientacion, letraUna } = opciones;
+  const tipoCajas = cajasAlAbrir(completas, opciones.sencillas);
+  const sencillas = tipoCajas === "pequenas";
+  const elegirCajas = (c: CajasPdf) => {
+    setCompletas(c === "completas");
+    if (c !== "completas") cambiar({ sencillas: c === "pequenas" });
+  };
   // Con A4, Letter y de A3 a A0 (y el rollo), «Una sola página».
   const grande = conUnaPagina(papel);
   // El rollo solo tiene «Una sola página»; los otros repartos se calculan
@@ -177,8 +196,8 @@ function Contenido({
 
   // En el PDF, las fechas de las cajas con el mes abreviado («12 abr 1926»).
   const cajas = useMemo<PresentacionCajas>(
-    () => ({ ...presentacion, ids: false, idsDebajo: admin && conIds, formato: "abreviado", sencillas }),
-    [presentacion, admin, conIds, sencillas],
+    () => ({ ...presentacion, ids: false, idsDebajo: admin && conIds, formato: "abreviado", sencillas, completas: tipoCajas === "completas" }),
+    [presentacion, admin, conIds, sencillas, tipoCajas],
   );
 
   // El reparto en páginas, sin dibujar nada (rápido).
@@ -223,7 +242,7 @@ function Contenido({
   // Con cajas pequeñas, ¿cabría en este papel?
   const cabePequenas = useMemo(() => {
     if (!noCabeUna || sencillas) return false;
-    const d = construirGrafico(arbol, persona, tipo, generaciones, { ...cajas, sencillas: true });
+    const d = construirGrafico(arbol, persona, tipo, generaciones, { ...cajas, sencillas: true, completas: false });
     return planificarUnaPagina(d, persona, tipo, generaciones, disposicion, papel, orientacion, letraUna, espacio).cabe;
   }, [noCabeUna, sencillas, arbol, persona, tipo, generaciones, cajas, disposicion, papel, orientacion, letraUna, espacio]);
   const peor = letraMinima(plan);
@@ -279,7 +298,7 @@ function Contenido({
       />
       {aviso && <Alert color="orange" p="xs"><Text size="sm">{t(`pdf.papel.${aviso}` as Clave)}</Text></Alert>}
       <div>
-        <Text size="sm" fw={500} mb={4}>{t("pdf.orientacion")}</Text>
+        <Text size="sm" fw={500} mb={4}><ConAyuda que="orientacion">{t("pdf.orientacion")}</ConAyuda></Text>
         <SegmentedControl
           value={orientacion}
           onChange={(v) => cambiar({ orientacion: v as PaperOrientation })}
@@ -294,20 +313,21 @@ function Contenido({
         onChange={(v) => v && setPedidas(v === "todas" ? "todas" : Number(v))}
         allowDeselect={false}
       />
-      <OpcionDisposicion value={disposicion} onChange={setDisposicion} />
-      <Checkbox
-        checked={sencillas}
-        onChange={(e) => cambiar({ sencillas: e.currentTarget.checked })}
-        label={t("pdf.cajasPequenas")}
-        description={t("pdf.cajasPequenasAyuda")}
-      />
-      {admin && (
-        <Checkbox
-          checked={conIds}
-          onChange={(e) => setConIds(e.currentTarget.checked)}
-          label={t("pdf.incluirIds")}
-          description={t("pdf.incluirIdsAyuda")}
+      <OpcionDisposicion value={disposicion} onChange={setDisposicion} ayuda={(texto) => <ConAyuda que="disposicion">{texto}</ConAyuda>} />
+      <div>
+        <Text size="sm" fw={500} mb={4} id="cajas-pdf"><ConAyuda que="cajas">{t("pdf.cajas")}</ConAyuda></Text>
+        <SegmentedControl
+          aria-labelledby="cajas-pdf"
+          value={tipoCajas}
+          onChange={(v) => elegirCajas(v as CajasPdf)}
+          data={CAJAS_PDF.map((c) => ({ value: c, label: t(`pdf.cajas.${c}` as Clave) }))}
         />
+      </div>
+      {admin && (
+        <Group gap={4} wrap="nowrap" align="center">
+          <Checkbox checked={conIds} onChange={(e) => setConIds(e.currentTarget.checked)} label={t("pdf.incluirIds")} />
+          <AyudaPdf que="ids" />
+        </Group>
       )}
       {rollo ? (
         <Text size="sm">
@@ -323,7 +343,7 @@ function Contenido({
             {grande && (
               <Radio
                 value="unaPagina"
-                label={t("pdf.modo.unaPagina")}
+                label={<ConAyuda que="unaPagina">{t("pdf.modo.unaPagina")}</ConAyuda>}
                 description={unaPagina?.cabe
                   ? t("pdf.modo.unaPaginaAyuda", { papel, pt: puntos(ptUna) })
                   : t("pdf.modo.unaPaginaNoCabe", { papel, min: letraUna })}
@@ -331,12 +351,12 @@ function Contenido({
             )}
             <Radio
               value="continuacion"
-              label={t("pdf.modo.continuacion")}
+              label={<ConAyuda que="continuacion">{t("pdf.modo.continuacion")}</ConAyuda>}
               description={t("pdf.modo.continuacionAyuda", { paginas: paginas.length, g: primero.generaciones })}
             />
             <Radio
               value="mosaico"
-              label={t("pdf.modo.mosaico")}
+              label={<ConAyuda que="mosaico">{t("pdf.modo.mosaico")}</ConAyuda>}
               description={t("pdf.modo.mosaicoAyuda", { hojas: mosaico.hojas.length, filas: mosaico.filas, columnas: mosaico.columnas })}
             />
           </Stack>
@@ -344,7 +364,7 @@ function Contenido({
       )}
       {!cabe && grande && modo === "unaPagina" && (
         <div>
-          <Text size="sm" mb={4}>{t("pdf.unaPagina.letra")}</Text>
+          <Text size="sm" mb={4}><ConAyuda que="letra">{t("pdf.unaPagina.letra")}</ConAyuda></Text>
           <SegmentedControl
             value={String(letraUna)}
             onChange={(v) => cambiar({ letraUna: Number(v) })}
@@ -376,7 +396,7 @@ function Contenido({
               {mejorOtra && (
                 <Button size="xs" variant="default" onClick={() => setDisposicion(otra)}>{t("pdf.unaPagina.usarDisposicion", { disp: t(`pdf.disposicionCorta.${otra}`) })}</Button>
               )}
-              {cabePequenas && <Button size="xs" variant="default" onClick={() => cambiar({ sencillas: true })}>{t("pdf.unaPagina.usarPequenas")}</Button>}
+              {cabePequenas && <Button size="xs" variant="default" onClick={() => elegirCajas("pequenas")}>{t("pdf.unaPagina.usarPequenas")}</Button>}
               {donde.papel && <Button size="xs" variant="default" onClick={() => cambiar({ papel: donde.papel! })}>{t("pdf.unaPagina.usarPapel", { papel: papelEnFrase(donde.papel) })}</Button>}
               {!donde.papel && donde.generaciones && (
                 <Button size="xs" variant="default" onClick={() => setPedidas(donde.generaciones!)}>{t("pdf.unaPagina.usarGeneraciones", { g: donde.generaciones })}</Button>

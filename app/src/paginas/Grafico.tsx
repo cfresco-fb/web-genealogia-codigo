@@ -1,6 +1,7 @@
 // Árbol de ascendientes, de descendientes o de los dos, centrado en una
 // persona. Dirección: /arbol/{handle}?tipo=…&gen=…&disp=…; sin handle, la
-// persona de inicio; sin «disp», vertical. Pulsar una persona centra el árbol en ella; «Anterior» vuelve
+// persona de inicio; sin «disp», vertical; con «cajas=completas», cajas que
+// no recortan nada (12/11/2026). Pulsar una persona centra el árbol en ella; «Anterior» vuelve
 // a la persona central de antes (la pila va en el estado del historial, así
 // que también funciona el botón de atrás del navegador).
 
@@ -12,8 +13,8 @@ import { usePreferencias } from "../acceso/preferencias";
 import { useSesion } from "../acceso/sesion";
 import { useArbol } from "../arbol/contexto";
 import {
-  construirGrafico, DISPOSICIONES, generacionesEfectivas, generacionesQueHay, leerDisposicion, leerGeneraciones, leerTipo,
-  opcionesGeneraciones, TIPOS_GRAFICO, type Disposicion, type Generaciones, type TipoGrafico,
+  CAJAS_PANTALLA, construirGrafico, DISPOSICIONES, generacionesEfectivas, generacionesQueHay, leerCajas, leerDisposicion, leerGeneraciones,
+  leerTipo, opcionesGeneraciones, TIPOS_GRAFICO, type CajasPantalla, type Disposicion, type Generaciones, type TipoGrafico,
 } from "../arbol/grafico";
 import { AvisoAjustes, rutaPersona } from "../componentes/Enlaces";
 import { ExportarLibro } from "../componentes/ExportarLibro";
@@ -26,11 +27,15 @@ import { t, type Clave } from "../i18n";
 import { color } from "../tema/colores";
 
 /** Dirección del árbol de una persona. Sin generaciones, las de las
- * preferencias del usuario. */
-export function rutaArbol(handle: string, tipo: TipoGrafico = "ambos", generaciones?: Generaciones, disposicion?: Disposicion): string {
+ * preferencias del usuario. Las cajas completas, como la disposición: solo
+ * si se piden. */
+export function rutaArbol(
+  handle: string, tipo: TipoGrafico = "ambos", generaciones?: Generaciones, disposicion?: Disposicion, cajas?: CajasPantalla,
+): string {
   const q = new URLSearchParams({ tipo });
   if (generaciones) q.set("gen", String(generaciones));
   if (disposicion && disposicion !== "vertical") q.set("disp", disposicion);
+  if (cajas === "completas") q.set("cajas", cajas);
   return `/arbol/${handle}?${q}`;
 }
 
@@ -100,8 +105,13 @@ export function Grafico() {
   const grafico = useRef<TreeChartHandle>(null);
   const { simbolos, nombreArbol, personaInicio, vivas, generaciones: preferidas } = usePreferencias();
   const { invitacion } = useSesion();
+  const cajas = leerCajas(parametros.get("cajas"));
+  const completas = cajas === "completas";
   // El ID de Gramps en las cajas, solo para el administrador.
-  const presentacion = useMemo(() => ({ ...simbolos, ids: invitacion.rol === "administrador", vivas }), [simbolos, invitacion.rol, vivas]);
+  const presentacion = useMemo(
+    () => ({ ...simbolos, ids: invitacion.rol === "administrador", vivas, completas }),
+    [simbolos, invitacion.rol, vivas, completas],
+  );
   const [pdfAbierto, setPdfAbierto] = useState(false);
   const [libroAbierto, setLibroAbierto] = useState(false);
   const [aviso, setAviso] = useState("");
@@ -125,18 +135,20 @@ export function Grafico() {
 
   /** Cambia la persona central, el tipo o las generaciones. */
   const ir = useCallback(
-    (cambios: { handle?: string; tipo?: TipoGrafico; generaciones?: Generaciones; disposicion?: Disposicion; anteriores?: string[] }) => {
+    (cambios: {
+      handle?: string; tipo?: TipoGrafico; generaciones?: Generaciones; disposicion?: Disposicion; cajas?: CajasPantalla; anteriores?: string[];
+    }) => {
       if (!persona) return;
       const nuevo = cambios.handle ?? persona.handle;
       const pila = cambios.anteriores ?? (nuevo !== persona.handle ? [...anteriores, persona.handle] : anteriores);
-      navegar(rutaArbol(nuevo, cambios.tipo ?? tipo, cambios.generaciones ?? pedidas, cambios.disposicion ?? disposicion), {
+      navegar(rutaArbol(nuevo, cambios.tipo ?? tipo, cambios.generaciones ?? pedidas, cambios.disposicion ?? disposicion, cambios.cajas ?? cajas), {
         state: { anteriores: pila } satisfies EstadoHistorial,
-        // Cambiar tipo, generaciones o disposición no deja un paso más en el
-        // historial.
+        // Cambiar tipo, generaciones, disposición o cajas no deja un paso más
+        // en el historial.
         replace: nuevo === persona.handle,
       });
     },
-    [persona, anteriores, tipo, pedidas, disposicion, navegar],
+    [persona, anteriores, tipo, pedidas, disposicion, cajas, navegar],
   );
 
   const centrar = useCallback((h: string) => {
@@ -169,7 +181,7 @@ export function Grafico() {
         <Anchor component={Link} to={rutaPersona(persona.handle)} size="sm">{t("grafico.ficha")}</Anchor>
       </div>
       <Group justify="space-between" align="flex-end" gap="sm">
-        {/* Qué se dibuja: tipo de árbol, generaciones y disposición. */}
+        {/* Qué se dibuja: tipo de árbol, generaciones, disposición y cajas. */}
         <Paper withBorder px="sm" py={6} bg={color("superficie-hundida")} role="group" aria-label={t("grafico.controles")}>
           <Group gap="md" align="flex-end">
             <div>
@@ -202,6 +214,16 @@ export function Grafico() {
                 value={disposicion}
                 onChange={(v) => ir({ disposicion: v as Disposicion })}
                 data={DISPOSICIONES.map((d) => ({ value: d, label: t(`grafico.disposicion.${d}` as Clave) }))}
+              />
+            </div>
+            <div>
+              <Text size="xs" fw={600} mb={2} id="cajas-arbol">{t("grafico.cajas")}</Text>
+              <SegmentedControl
+                size="xs"
+                aria-labelledby="cajas-arbol"
+                value={cajas}
+                onChange={(v) => ir({ cajas: v as CajasPantalla })}
+                data={CAJAS_PANTALLA.map((c) => ({ value: c, label: t(`grafico.cajas.${c}` as Clave) }))}
               />
             </div>
           </Group>
@@ -263,6 +285,7 @@ export function Grafico() {
           onOpenPerson={abrirFicha}
           photoUrl={urlFoto}
           labels={etiquetas}
+          full={completas}
         />
         <Group gap={4} pos="absolute" bottom={8} right={8}>
           <ActionIcon variant="default" size="lg" aria-label={t("grafico.ampliar")} title={t("grafico.ampliar")} onClick={() => grafico.current?.zoomIn()}>+</ActionIcon>
@@ -281,6 +304,7 @@ export function Grafico() {
         tipo={tipo}
         generaciones={pedidas}
         disposicion={disposicion}
+        completas={completas}
         presentacion={presentacion}
         labels={etiquetas}
         photoUrl={urlFoto}

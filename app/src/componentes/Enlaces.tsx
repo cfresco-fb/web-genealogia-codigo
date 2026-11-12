@@ -9,7 +9,7 @@ export const rutaPersona = (handle: string) => `/persona/${handle}`;
 
 /** Secciones de Ajustes a las que se puede llegar directamente
  * (/ajustes#…; Carlos, 04/11/2026). */
-export type SeccionAjustes = "persona-inicio" | "generaciones" | "simbolos" | "region" | "modo-color" | "aniversarios" | "nombre-arbol" | "vivos";
+export type SeccionAjustes = "persona-inicio" | "generaciones" | "simbolos" | "region" | "modo-color" | "aniversarios-de" | "aniversarios" | "nombre-arbol" | "vivos";
 export const rutaAjustes = (seccion: SeccionAjustes) => `/ajustes#${seccion}`;
 
 /** Una línea discreta que dice que algo se elige en Ajustes, con el enlace a

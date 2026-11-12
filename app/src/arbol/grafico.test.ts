@@ -4,11 +4,13 @@
 // desconocido, personas sin fechas ni padres, y datos con un ciclo.
 
 import { beforeAll, describe, expect, it } from "vitest";
-import { fitName, measureTreeChart, treeChartShapes, type TreeNode } from "../gramps-connect/graficos/charts/treeChart";
+import {
+  fitName, fullRows, fullText, measureTreeChart, treeChartShapes, wrapTokens, type TreeLine, type TreeNode, type TreePerson,
+} from "../gramps-connect/graficos/charts/treeChart";
 import { Arbol } from "./arbol";
 import { prepararFechas } from "./fechas";
 import {
-  construirGrafico, generacionesEfectivas, generacionesQueHay, generacionesValidas, leerGeneraciones, leerTipo, opcionesGeneraciones,
+  construirGrafico, generacionesEfectivas, generacionesQueHay, generacionesValidas, leerCajas, leerGeneraciones, leerTipo, opcionesGeneraciones,
 } from "./grafico";
 import { simbolosDe } from "./simbolos";
 import type { Instantanea } from "./tipos";
@@ -537,5 +539,135 @@ describe("gráficos", () => {
     expect(generacionesValidas(250)).toBe(250);
     expect(generacionesValidas("todas")).toBe("todas");
     for (const no of [1, 0, -3, 4.5, "4", "Todas", null, undefined]) expect(generacionesValidas(no)).toBeNull();
+  });
+
+  describe("cajas completas (12/11/2026)", () => {
+    const COMPLETAS = { ...ABREV, completas: true };
+    const LUGAR = "Great Falls of the Missouri River, Cascade County, Montana, United States of America";
+    const NOMBRE = "Ana María Luisa Teresa “Pepa la de la Huerta”";
+    const APELLIDOS = "Pérez de la Concepción y Wolfeschlegelstein";
+    const linea = (head: string, place: string): TreeLine => ({ text: `${head}, ${place}`, keep: head.length, short: "", keepShort: 0, head, place });
+    const LAYOUTS = ["vertical", "horizontal"] as const;
+    /** Rectángulos de las cajas de persona y de los óvalos, agrupados por
+     * generación (fila en vertical, columna en horizontal): sus altos. */
+    const porGeneracion = (t: TreeNode, layout: "vertical" | "horizontal") => {
+      const cajas = new Map<number, Set<number>>();
+      const ovalos = new Map<number, Set<number>>();
+      const anchoCaja = layout === "vertical" ? 194 : 234;
+      for (const r of treeChartShapes(t, null, layout, false, false, true).rects) {
+        const clave = Math.round(layout === "vertical" ? (r.y0 + r.y1) / 2 : (r.x0 + r.x1) / 2);
+        const m = layout === "vertical" ? r.x1 - r.x0 : r.x1 - r.x0;
+        const destino = m === anchoCaja ? cajas : ovalos;
+        destino.set(clave, (destino.get(clave) ?? new Set()).add(r.y1 - r.y0));
+      }
+      return { cajas: [...cajas.values()].map((x) => [...x]), ovalos: [...ovalos.values()].map((x) => [...x]) };
+    };
+    const nodo = (t: TreeNode, h: string) => todas(t).find((n) => n.person?.handle === h)!;
+
+    it("wrapTokens: junta lo que cabe, parte por espacios y una palabra sola, por letras; nada se recorta", () => {
+      const w = (s: string) => s.length;
+      expect(wrapTokens(["Great Falls,", "MT,", "USA"], 20, 20, w)).toEqual(["Great Falls, MT, USA"]);
+      expect(wrapTokens(["Great Falls,", "MT,", "USA"], 12, 12, w)).toEqual(["Great Falls,", "MT, USA"]);
+      expect(wrapTokens(["Great Falls of Montana,", "USA"], 12, 12, w)).toEqual(["Great Falls", "of Montana,", "USA"]);
+      expect(wrapTokens(["Wolfeschlegel"], 5, 5, w)).toEqual(["Wolfe", "schle", "gel"]);
+      // La primera línea, más corta (el botón de ficha).
+      expect(wrapTokens(["Ana", "“Pepa”"], 4, 10, w)).toEqual(["Ana", "“Pepa”"]);
+    });
+
+    it("un nombre y un lugar muy largos: enteros, sin «…», la fecha en su línea y el lugar debajo", () => {
+      const caja: TreePerson = {
+        handle: "x", gender: 0, nameGiven: NOMBRE, nameSurname: APELLIDOS, grampsId: "I0001",
+        birth: linea("n. 21 jun 1855", LUGAR), death: linea("f. 3 may 1950", "Madrid"), title: "", photo: null, repeated: false,
+      };
+      for (const layout of LAYOUTS) {
+        for (const foto of [false, true]) {
+          const c = { ...caja, photo: foto ? { handle: "f", rect: null } : null };
+          const tx = fullText(c, layout, foto);
+          expect(tx.name.join(" ")).toBe(`${NOMBRE} ${APELLIDOS} [I0001]`);
+          expect(tx.name.length).toBeGreaterThan(3);
+          // El apodo cabe en una línea: no se parte.
+          expect(tx.name.some((l) => l.includes("“Pepa la de la Huerta”"))).toBe(true);
+          expect(tx.data[0][0]).toBe("n. 21 jun 1855");
+          expect(tx.data[0].slice(1).join(" ")).toBe(LUGAR);
+          expect(tx.data[0].length).toBeGreaterThan(2);
+          expect(tx.data[1]).toEqual(["f. 3 may 1950", "Madrid"]);
+          expect([...tx.name, ...tx.data.flat()].join("")).not.toContain("…");
+          const filas = fullRows(tx, layout, foto);
+          expect(filas.height).toBeGreaterThan(filas.data[1].at(-1)!);
+        }
+      }
+    });
+
+    it("con dos líneas de nombre, nacimiento y defunción, la caja mide lo mismo que la normal", () => {
+      const caja: TreePerson = {
+        handle: "x", gender: 0, nameGiven: "Ana", nameSurname: "Pérez", birth: linea("n. 1900", ""), death: linea("f. 1950", ""),
+        title: "", photo: null, repeated: false,
+      };
+      expect(fullRows(fullText(caja, "vertical", false), "vertical", false).height).toBe(84);
+      expect(fullRows(fullText(caja, "vertical", true), "vertical", true).height).toBe(146);
+    });
+
+    it("los datos traen la fecha y el lugar por separado; sin nombre, el rótulo, para contar sus líneas", () => {
+      const g = construirGrafico(arbol, p("rr"), "descendientes", 2, COMPLETAS);
+      expect(g.completas).toBe(true);
+      expect(g.descendientes!.children!.find((n) => n.family?.handle === "fr1")!.family!.lines[0]).toMatchObject({ head: "matr. 1980", place: "Madrid" });
+      const x = construirGrafico(arbol, p("x"), "ascendientes", 2, COMPLETAS).ascendientes!.person!;
+      expect(x.nameGiven).not.toBe("");
+      expect(construirGrafico(arbol, p("x"), "ascendientes", 2, ABREV).ascendientes!.person!.nameGiven).toBe("");
+    });
+
+    it("todas las parejas de ascendientes llevan su óvalo, también en los bloques de continuación", () => {
+      const familias = (o: object, parejas = true) =>
+        todas(construirGrafico(arbol, p("z"), "ascendientes", 4, { ...ABREV, ...o }, undefined, undefined, parejas).ascendientes)
+          .filter((n) => n.family).map((n) => [n.family!.handle, n.family!.parents]);
+      const esperado = [["fc", true], ["fp1", true], ["fa", true], ["fq", true], ["fa", true]];
+      expect(familias({ completas: true })).toEqual(esperado);
+      expect(familias({ completas: true }, false)).toEqual(esperado);
+      // Con cajas normales o pequeñas, como antes.
+      expect(familias({})).toEqual([["fc", true]]);
+      expect(familias({ completas: true, sencillas: true })).toEqual([["fc", true]]);
+      // Las personas se cuentan igual.
+      expect(construirGrafico(arbol, p("z"), "ascendientes", 4, COMPLETAS).cajas).toBe(construirGrafico(arbol, p("z"), "ascendientes", 4, ABREV).cajas);
+    });
+
+    for (const layout of LAYOUTS) {
+      it(`en ${layout}: las cajas de una generación, todas del alto de la más llena; los óvalos, igual`, () => {
+        const t = structuredClone(construirGrafico(arbol, p("z"), "ascendientes", 4, COMPLETAS).ascendientes!);
+        const c1 = nodo(t, "c1").person!;
+        c1.nameGiven = NOMBRE;
+        c1.birth = linea("n. 1850", LUGAR);
+        // El óvalo de los padres de c1, con un lugar largo.
+        t.children![0].children![0].children![0].family!.lines = [linea("matr. 1875", LUGAR)];
+        const { cajas, ovalos } = porGeneracion(t, layout);
+        for (const alto of [...cajas, ...ovalos]) expect(alto).toHaveLength(1);
+        // La generación de c1, más alta que la de z y que la de los abuelos.
+        const altos = cajas.map((a) => a[0]);
+        expect(new Set(altos).size).toBeGreaterThan(1);
+        expect(Math.max(...altos)).toBeGreaterThan(layout === "vertical" ? 84 + 3 * 15 : 90 + 15);
+        // Los óvalos con el lugar largo, más altos que los de siempre (46).
+        expect(Math.max(...ovalos.map((a) => a[0]))).toBeGreaterThan(46);
+        // El ancho de las cajas no cambia (porGeneracion las reconoce por él).
+        expect(cajas.length).toBe(4);
+      });
+    }
+
+    it("en horizontal, la columna más alta separa más sus cajas: ninguna se pisa", () => {
+      const t = structuredClone(construirGrafico(arbol, p("z"), "ascendientes", 4, COMPLETAS).ascendientes!);
+      for (const h of ["abuelo", "abuela"]) nodo(t, h).person!.birth = linea("n. 1850", LUGAR);
+      for (const layout of LAYOUTS) {
+        const rects = treeChartShapes(t, null, layout, false, false, true).rects;
+        for (const [i, a] of rects.entries()) {
+          for (const b of rects.slice(i + 1)) {
+            expect(a.x0 < b.x1 - 0.01 && b.x0 < a.x1 - 0.01 && a.y0 < b.y1 - 0.01 && b.y0 < a.y1 - 0.01).toBe(false);
+          }
+        }
+      }
+    });
+
+    it("la dirección: con «cajas=completas», completas; sin él (o con otro valor), normales", () => {
+      expect(leerCajas("completas")).toBe("completas");
+      expect(leerCajas(null)).toBe("normales");
+      expect(leerCajas("pequenas")).toBe("normales");
+    });
   });
 });
